@@ -310,3 +310,188 @@ describe("POST /app/actors/[actorId]/review", () => {
     expect(response.status).toBe(401);
   });
 });
+
+describe("GET /app/traces", () => {
+  beforeEach(() => {
+    dbClient.events = [];
+    dbClient.actorStates.clear();
+    (dbClient as any).approvals = [];
+  });
+
+  it("returns events for a workspace", async () => {
+    const { POST: actionPost } = await import("@/app/api/actions/[actionName]/route");
+    const req = makeRequest("http://localhost/app/actions/createNote", {
+      method: "POST",
+      body: { title: "Hello", content: "World" },
+      headers: { "x-tera-api-key": "sk-agent-123" },
+    });
+    await actionPost(req, { params: { actionName: "createNote" } });
+
+    const { GET } = await import("@/app/traces/route");
+    const request = makeRequest("http://localhost/app/traces?workspaceId=default-workspace", {
+      method: "GET",
+      headers: { "x-tera-api-key": "sk-agent-123" },
+    });
+
+    const response = await GET(request);
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.events).toBeDefined();
+    expect(json.events.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("returns 401 when unauthenticated", async () => {
+    const { GET } = await import("@/app/traces/route");
+    const request = makeRequest("http://localhost/app/traces?workspaceId=default-workspace", {
+      method: "GET",
+    });
+
+    const response = await GET(request);
+    expect(response.status).toBe(401);
+  });
+
+  it("returns 400 when workspaceId is missing", async () => {
+    const { GET } = await import("@/app/traces/route");
+    const request = makeRequest("http://localhost/app/traces", {
+      method: "GET",
+      headers: { "x-tera-api-key": "sk-agent-123" },
+    });
+
+    const response = await GET(request);
+    expect(response.status).toBe(400);
+  });
+});
+
+describe("GET /app/traces/[eventId]", () => {
+  beforeEach(() => {
+    dbClient.events = [];
+    dbClient.actorStates.clear();
+    (dbClient as any).approvals = [];
+  });
+
+  it("returns event with chain", async () => {
+    const { POST: actionPost } = await import("@/app/api/actions/[actionName]/route");
+    const req = makeRequest("http://localhost/app/actions/createNote", {
+      method: "POST",
+      body: { title: "Hello", content: "World" },
+      headers: { "x-tera-api-key": "sk-agent-123" },
+    });
+    const res = await actionPost(req, { params: { actionName: "createNote" } });
+    const json = await res.json();
+    const eventId = json.eventId || (dbClient.events[0] && dbClient.events[0].id);
+
+    const { GET } = await import("@/app/traces/[eventId]/route");
+    const request = makeRequest(
+      `http://localhost/app/traces/${eventId}?workspaceId=default-workspace`,
+      {
+        method: "GET",
+        headers: { "x-tera-api-key": "sk-agent-123" },
+      }
+    );
+
+    const response = await GET(request, { params: { eventId } });
+    const chainJson = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(chainJson.event).toBeDefined();
+    expect(chainJson.event.eventId).toBe(eventId);
+    expect(chainJson.ancestors).toBeDefined();
+    expect(Array.isArray(chainJson.ancestors)).toBe(true);
+    expect(chainJson.descendants).toBeDefined();
+    expect(Array.isArray(chainJson.descendants)).toBe(true);
+  });
+
+  it("returns 404 for unknown event", async () => {
+    const { GET } = await import("@/app/traces/[eventId]/route");
+    const request = makeRequest(
+      "http://localhost/app/traces/nonexistent?workspaceId=default-workspace",
+      {
+        method: "GET",
+        headers: { "x-tera-api-key": "sk-agent-123" },
+      }
+    );
+
+    const response = await GET(request, { params: { eventId: "nonexistent" } });
+    expect(response.status).toBe(404);
+  });
+
+  it("returns 401 when unauthenticated", async () => {
+    const { GET } = await import("@/app/traces/[eventId]/route");
+    const request = makeRequest(
+      "http://localhost/app/traces/evt-1?workspaceId=default-workspace",
+      {
+        method: "GET",
+      }
+    );
+
+    const response = await GET(request, { params: { eventId: "evt-1" } });
+    expect(response.status).toBe(401);
+  });
+});
+
+describe("GET /app/traces/actors/contained", () => {
+  beforeEach(() => {
+    dbClient.events = [];
+    dbClient.actorStates.clear();
+    (dbClient as any).approvals = [];
+  });
+
+  it("returns contained actors for a workspace", async () => {
+    const { POST: actionPost } = await import("@/app/api/actions/[actionName]/route");
+    const { POST: reviewPost } = await import("@/app/actors/[actorId]/review/route");
+
+    const rootReq = makeRequest("http://localhost/app/actions/restrictedNote", {
+      method: "POST",
+      body: { title: "Root", content: "Blast radius" },
+      headers: { "x-tera-api-key": "sk-agent-123" },
+    });
+    const rootRes = await actionPost(rootReq, { params: { actionName: "restrictedNote" } });
+    const rootJson = await rootRes.json();
+    const rootEventId = rootJson.eventId || (dbClient.events[0] && dbClient.events[0].id);
+
+    const childReq = makeRequest("http://localhost/app/actions/deleteAllCustomers", {
+      method: "POST",
+      body: { reason: "oops" },
+      headers: {
+        "x-tera-api-key": "sk-agent-123",
+        "x-tera-parent-event-id": rootEventId,
+      },
+    });
+    await actionPost(childReq, { params: { actionName: "deleteAllCustomers" } });
+
+    const containedActor = Array.from(dbClient.actorStates.values()).find(
+      (s) => s.status === "contained"
+    );
+    expect(containedActor).toBeDefined();
+
+    const { GET } = await import("@/app/traces/actors/contained/route");
+    const request = makeRequest(
+      `http://localhost/app/traces/actors/contained?workspaceId=${defaultWorkspaceId}`,
+      {
+        method: "GET",
+        headers: { "x-tera-api-key": "sk-agent-123" },
+      }
+    );
+
+    const response = await GET(request);
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.actors).toBeDefined();
+    expect(json.actors.some((a: any) => a.actorId === containedActor!.actorId)).toBe(true);
+  });
+
+  it("returns 401 when unauthenticated", async () => {
+    const { GET } = await import("@/app/traces/actors/contained/route");
+    const request = makeRequest(
+      "http://localhost/app/traces/actors/contained?workspaceId=default-workspace",
+      {
+        method: "GET",
+      }
+    );
+
+    const response = await GET(request);
+    expect(response.status).toBe(401);
+  });
+});
