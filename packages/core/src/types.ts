@@ -37,6 +37,17 @@ export class ActionPermissionError extends Error {
   }
 }
 
+export class ActionContainmentError extends Error {
+  constructor(
+    message: string,
+    public readonly errorCode: string,
+    public readonly permissionResult: "deny"
+  ) {
+    super(message);
+    this.name = "ActionContainmentError";
+  }
+}
+
 export class ActionPendingApprovalError extends Error {
   constructor(
     message: string,
@@ -46,6 +57,35 @@ export class ActionPendingApprovalError extends Error {
     super(message);
     this.name = "ActionPendingApprovalError";
   }
+}
+
+export type ActorStatus = "active" | "contained" | "revoked";
+
+export interface ActorState {
+  actorId: string;
+  workspaceId: string;
+  status: ActorStatus;
+  containedAt: Date | null;
+  containedReason: string | null;
+  reviewedBy: string | null;
+  reviewedAt: Date | null;
+}
+
+export interface InsertActorState {
+  actorId: string;
+  workspaceId: string;
+  status: ActorStatus;
+  containedAt: Date | null;
+  containedReason: string | null;
+  reviewedBy: string | null;
+  reviewedAt: Date | null;
+}
+
+export interface ActionEventLookup {
+  id: string;
+  actionName: string;
+  parentEventId: string | null;
+  blastRadius: string[] | null;
 }
 
 export type PermissionResult = "allow" | "deny" | "approval_required";
@@ -102,6 +142,7 @@ export interface ActionConfig<TInput extends z.ZodTypeAny> {
   inputSchema: TInput;
   handler: (input: z.infer<TInput>, ctx: ActionContext) => Promise<unknown>;
   approvalTtlMs?: number;
+  blastRadius?: string[];
 }
 
 export interface ActionResult<T = unknown> {
@@ -114,6 +155,7 @@ export interface DefinedAction<TInput extends z.ZodTypeAny> {
   description: string;
   permission: string;
   input: TInput;
+  blastRadius?: string[];
   execute(
     rawInput: unknown,
     ctx: ActionContext,
@@ -150,6 +192,7 @@ export interface InsertActionEvent {
   startedAt: Date;
   durationMs: number | null;
   workspaceId: string;
+  blastRadius: string[] | null;
 }
 
 export interface DbClient {
@@ -160,4 +203,7 @@ export interface DbClient {
   findPendingApprovals(workspaceId: string): Promise<ActionApproval[]>;
   findAllPendingApprovals(): Promise<ActionApproval[]>;
   findApprovalById(id: string): Promise<ActionApproval | null>;
+  findEventById(id: string): Promise<ActionEventLookup | null>;
+  findActorState(actorId: string, workspaceId: string): Promise<ActorState | null>;
+  upsertActorState(state: InsertActorState): Promise<void>;
 }

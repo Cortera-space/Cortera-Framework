@@ -75,6 +75,10 @@ class MockDbClient implements DbClient {
     }
     return { ...approval, id: (approval as any)._id };
   }
+
+  async findEventById(_id: string): Promise<any | null> { return null; }
+  async findActorState(_actorId: string, _workspaceId: string): Promise<any | null> { return null; }
+  async upsertActorState(_state: any): Promise<void> {}
 }
 
 async function main() {
@@ -115,7 +119,7 @@ async function main() {
   console.log("createNote result:", noteResult.result);
 
   console.log("\n=== Step 2: Delete customer (approval_required) ===");
-  let approvalId: string;
+  let approvalId: string | undefined;
   try {
     await deleteCustomerAction.execute(
       { id: "cust-123" },
@@ -136,6 +140,9 @@ async function main() {
   console.log("Event permissionResult:", pendingEvent?.permissionResult);
 
   console.log("\n=== Step 3: Resolve approval (approved) ===");
+  if (!approvalId) {
+    throw new Error("approvalId was not set");
+  }
   await resolveApproval(approvalId, "approved", "approver-1", dbClient, registry);
 
   const approvedEvent = dbClient.events.find((e) => e.actionName === "deleteCustomer");

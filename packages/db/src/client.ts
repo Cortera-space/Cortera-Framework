@@ -4,6 +4,9 @@ import type {
   InsertActionEvent,
   InsertActionApproval,
   ActionApproval,
+  ActionEventLookup,
+  ActorState,
+  InsertActorState,
 } from "@tera/core";
 
 export type PostgresDbClientOptions = {
@@ -22,8 +25,8 @@ export class PostgresDbClient implements DbClient {
       `INSERT INTO action_events (
         action_name, actor_type, actor_id, input, output, error,
         permission_result, approved_by, parent_event_id,
-        started_at, duration_ms, workspace_id
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        started_at, duration_ms, workspace_id, blast_radius
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
       RETURNING id`,
       [
         event.actionName,
@@ -38,6 +41,7 @@ export class PostgresDbClient implements DbClient {
         event.startedAt,
         event.durationMs,
         event.workspaceId,
+        event.blastRadius ?? null,
       ]
     );
     return { id: rows[0].id };
@@ -208,6 +212,70 @@ export class PostgresDbClient implements DbClient {
       resolvedAt: row.resolved_at ? new Date(row.resolved_at) : null,
       approvedBy: row.approved_by,
     };
+  }
+
+  async findEventById(id: string): Promise<ActionEventLookup | null> {
+    const { rows } = await this.pool.query(
+      `SELECT id, action_name, parent_event_id, blast_radius
+       FROM action_events
+       WHERE id = $1`,
+      [id]
+    );
+    if (rows.length === 0) {
+      return null;
+    }
+    const row = rows[0];
+    return {
+      id: row.id,
+      actionName: row.action_name,
+      parentEventId: row.parent_event_id,
+      blastRadius: row.blast_radius ?? null,
+    };
+  }
+
+  async findActorState(actorId: string, workspaceId: string): Promise<ActorState | null> {
+    const { rows } = await this.pool.query(
+      `SELECT actor_id, workspace_id, status, contained_at, contained_reason, reviewed_by, reviewed_at
+       FROM actor_states
+       WHERE actor_id = $1 AND workspace_id = $2`,
+      [actorId, workspaceId]
+    );
+    if (rows.length === 0) {
+      return null;
+    }
+    const row = rows[0];
+    return {
+      actorId: row.actor_id,
+      workspaceId: row.workspace_id,
+      status: row.status as ActorState["status"],
+      containedAt: row.contained_at ? new Date(row.contained_at) : null,
+      containedReason: row.contained_reason,
+      reviewedBy: row.reviewed_by,
+      reviewedAt: row.reviewed_at ? new Date(row.reviewed_at) : null,
+    };
+  }
+
+  async upsertActorState(state: InsertActorState): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO actor_states (actor_id, workspace_id, status, contained_at, contained_reason, reviewed_by, reviewed_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       ON CONFLICT (actor_id, workspace_id)
+       DO UPDATE SET
+         status = EXCLUDED.status,
+         contained_at = EXCLUDED.contained_at,
+         contained_reason = EXCLUDED.contained_reason,
+         reviewed_by = EXCLUDED.reviewed_by,
+         reviewed_at = EXCLUDED.reviewed_at`,
+      [
+        state.actorId,
+        state.workspaceId,
+        state.status,
+        state.containedAt,
+        state.containedReason,
+        state.reviewedBy,
+        state.reviewedAt,
+      ]
+    );
   }
 
   async close(): Promise<void> {
