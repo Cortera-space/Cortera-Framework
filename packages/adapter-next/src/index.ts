@@ -1,9 +1,4 @@
 export {
-  createLiveTailHandler,
-  type LiveTailHandlerOptions,
-} from "./live-tail-handler";
-
-export {
   createActionHandler,
   type CreateActionHandlerOptions,
 } from "./route-handler";

@@ -51,12 +51,6 @@ export default function Home() {
       </section>
 
       <section style={{ marginBottom: "2rem" }}>
-        <h2>Live Tail</h2>
-        <p>Watch actions execute in real time — including containment events.</p>
-        <a href="/live-tail" style={{ color: "#0066cc" }}>Open Live Tail →</a>
-      </section>
-
-      <section style={{ marginBottom: "2rem" }}>
         <h2>Trace Viewer</h2>
         <p>Browse action events and inspect containment violations.</p>
         <a href="/traces" style={{ color: "#0066cc" }}>Open Trace List →</a>
