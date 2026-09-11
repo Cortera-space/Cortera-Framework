@@ -1,0 +1,28 @@
+{
+  "name": "tera-monorepo",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Tera - The web framework for the agent era",
+  "scripts": {
+    "build": "pnpm -r --stream build",
+    "dev": "pnpm -r --stream dev",
+    "typecheck": "pnpm -r --stream typecheck",
+    "lint": "eslint . --ext .ts,.tsx",
+    "format": "prettier --write .",
+    "clean": "pnpm -r --stream clean && rm -rf node_modules"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@typescript-eslint/eslint-plugin": "^6.13.0",
+    "@typescript-eslint/parser": "^6.13.0",
+    "eslint": "^8.54.0",
+    "eslint-config-prettier": "^9.0.0",
+    "prettier": "^3.1.0",
+    "typescript": "^5.3.0",
+    "tsup": "^8.0.0",
+    "zod": "^3.22.0"
+  },
+  "packageManager": "pnpm@8.12.0"
+}
