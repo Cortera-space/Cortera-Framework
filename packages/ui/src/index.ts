@@ -1,9 +1,4 @@
 export {
-  LiveTail,
-  type LiveTailProps,
-} from "./LiveTail";
-
-export {
   ActionForm,
   type ActionFormProps,
 } from "./ActionForm";
