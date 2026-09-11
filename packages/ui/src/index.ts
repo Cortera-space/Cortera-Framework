@@ -8,6 +8,21 @@ export {
   type ActionButtonProps,
 } from "./ActionButton";
 
+export {
+  TraceList,
+  type TraceListProps,
+} from "./TraceList";
+
+export {
+  TraceDetail,
+  type TraceDetailProps,
+} from "./TraceDetail";
+
+export {
+  ContainedActorsPanel,
+  type ContainedActorsPanelProps,
+} from "./ContainedActorsPanel";
+
 export { zodToFormSchema } from "./zod-to-form-schema";
 
 export type {

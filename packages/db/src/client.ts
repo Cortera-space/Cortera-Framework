@@ -7,7 +7,44 @@ import type {
   ActionEventLookup,
   ActorState,
   InsertActorState,
+  ActionEventFull,
+  EventTreeNode,
+  EventWithChain,
+  ListEventsFilters,
+  ListEventsResult,
 } from "@tera/core";
+
+function mapRowToActionEventFull(row: Record<string, unknown>): ActionEventFull {
+  return {
+    eventId: row.id as string,
+    actionName: row.action_name as string,
+    actorType: row.actor_type as ActionEventFull["actorType"],
+    actorId: row.actor_id as string,
+    permissionResult: row.permission_result as ActionEventFull["permissionResult"],
+    status: row.status as string,
+    input: row.input,
+    output: row.output,
+    error: row.error,
+    parentEventId: row.parent_event_id as string | null,
+    createdAt: new Date(row.created_at as string),
+    updatedAt: new Date(row.updated_at as string),
+    startedAt: new Date(row.started_at as string),
+    durationMs: row.duration_ms as number | null,
+    workspaceId: row.workspace_id as string,
+    blastRadius: row.blast_radius as string[] | null,
+  };
+}
+
+function buildDescendantTree(
+  rows: Record<string, unknown>[],
+  parentId: string
+): EventTreeNode[] {
+  const children = rows.filter((r) => r.parent_event_id === parentId);
+  return children.map((child) => ({
+    event: mapRowToActionEventFull(child),
+    children: buildDescendantTree(rows, child.id as string),
+  }));
+}
 
 export type PostgresDbClientOptions = {
   connectionString: string;
@@ -276,6 +313,143 @@ export class PostgresDbClient implements DbClient {
         state.reviewedAt,
       ]
     );
+  }
+
+  async listEvents(
+    workspaceId: string,
+    filters: ListEventsFilters,
+    limit: number,
+    cursor?: { startedAt: Date; id: string }
+  ): Promise<ListEventsResult> {
+    const conditions: string[] = ["workspace_id = $1"];
+    const values: unknown[] = [workspaceId];
+    let idx = 2;
+
+    if (filters.actorType) {
+      conditions.push(`actor_type = $${idx++}`);
+      values.push(filters.actorType);
+    }
+    if (filters.actionName) {
+      conditions.push(`action_name = $${idx++}`);
+      values.push(filters.actionName);
+    }
+    if (filters.permissionResult) {
+      conditions.push(`permission_result = $${idx++}`);
+      values.push(filters.permissionResult);
+    }
+    if (filters.from) {
+      conditions.push(`started_at >= $${idx++}`);
+      values.push(filters.from);
+    }
+    if (filters.to) {
+      conditions.push(`started_at <= $${idx++}`);
+      values.push(filters.to);
+    }
+    if (cursor) {
+      conditions.push(`(started_at, id) < ($${idx++}, $${idx++})`);
+      values.push(cursor.startedAt, cursor.id);
+    }
+
+    const whereClause = conditions.join(" AND ");
+    const { rows } = await this.pool.query(
+      `SELECT id, action_name, actor_type, actor_id, input, output, error,
+              permission_result, approved_by, parent_event_id, started_at,
+              duration_ms, workspace_id, blast_radius, created_at, updated_at
+       FROM action_events
+       WHERE ${whereClause}
+       ORDER BY started_at DESC, id DESC
+       LIMIT $${idx}`,
+      [...values, limit]
+    );
+
+    const events = rows.map(mapRowToActionEventFull);
+    const nextCursor =
+      events.length === limit
+        ? { startedAt: events[events.length - 1].startedAt, id: events[events.length - 1].eventId }
+        : null;
+
+    return { events, nextCursor };
+  }
+
+  async getEventWithChain(eventId: string): Promise<EventWithChain | null> {
+    const focalRows = await this.pool.query(
+      `SELECT id, action_name, actor_type, actor_id, input, output, error,
+              permission_result, approved_by, parent_event_id, started_at,
+              duration_ms, workspace_id, blast_radius, created_at, updated_at
+       FROM action_events
+       WHERE id = $1`,
+      [eventId]
+    );
+
+    if (focalRows.rows.length === 0) {
+      return null;
+    }
+
+    const focal = mapRowToActionEventFull(focalRows.rows[0]);
+
+    const ancestors: ActionEventFull[] = [];
+    let currentParentId: string | null = focal.parentEventId;
+    while (currentParentId) {
+      const parentRows = await this.pool.query(
+        `SELECT id, action_name, actor_type, actor_id, input, output, error,
+                permission_result, approved_by, parent_event_id, started_at,
+                duration_ms, workspace_id, blast_radius, created_at, updated_at
+         FROM action_events
+         WHERE id = $1`,
+        [currentParentId]
+      );
+      if (parentRows.rows.length === 0) {
+        break;
+      }
+      const parent = mapRowToActionEventFull(parentRows.rows[0]);
+      ancestors.push(parent);
+      currentParentId = parent.parentEventId;
+    }
+
+    const descendantRows = await this.pool.query(
+      `WITH RECURSIVE descendants AS (
+         SELECT id, action_name, actor_type, actor_id, input, output, error,
+                permission_result, approved_by, parent_event_id, started_at,
+                duration_ms, workspace_id, blast_radius, created_at, updated_at
+         FROM action_events
+         WHERE parent_event_id = $1
+         UNION ALL
+         SELECT e.id, e.action_name, e.actor_type, e.actor_id, e.input, e.output, e.error,
+                e.permission_result, e.approved_by, e.parent_event_id, e.started_at,
+                e.duration_ms, e.workspace_id, e.blast_radius, e.created_at, e.updated_at
+         FROM action_events e
+         INNER JOIN descendants d ON e.parent_event_id = d.id
+       )
+       SELECT * FROM descendants`,
+      [eventId]
+    );
+
+    const descendantTree = buildDescendantTree(descendantRows.rows, eventId);
+
+    return {
+      event: focal,
+      ancestors: ancestors.reverse(),
+      descendants: descendantTree,
+    };
+  }
+
+  async listContainedActors(workspaceId: string): Promise<ActorState[]> {
+    const { rows } = await this.pool.query(
+      `SELECT actor_id, workspace_id, status, contained_at, contained_reason, reviewed_by, reviewed_at
+       FROM actor_states
+       WHERE workspace_id = $1 AND status = 'contained'
+       ORDER BY contained_at DESC`,
+      [workspaceId]
+    );
+    return rows.map((row) => ({
+      actorId: row.actor_id,
+      workspaceId: row.workspace_id,
+      status: row.status as ActorState["status"],
+      containedAt: row.contained_at ? new Date(row.contained_at) : null,
+      containedReason: row.contained_reason,
+      reviewedBy: row.reviewed_by,
+      reviewedAt: row.reviewed_at ? new Date(row.reviewed_at) : null,
+    }));
   }
 
   async close(): Promise<void> {
