@@ -5,16 +5,38 @@ export type Actor = {
   actorId: string;
 };
 
-export type PermissionResult = "allow" | "deny" | "approval_required";
+export type ActionContext = {
+  actor: Actor;
+  workspaceId: string;
+};
 
-export interface ActionConfig<TInput extends z.ZodTypeAny, TOutput> {
+export class ActionValidationError extends Error {
+  constructor(
+    message: string,
+    public readonly issues: readonly z.ZodIssue[]
+  ) {
+    super(message);
+    this.name = "ActionValidationError";
+  }
+}
+
+export interface ActionConfig<TInput extends z.ZodTypeAny> {
   name: string;
   description: string;
-  inputSchema: TInput;
   permission: string;
-  handler: (input: z.infer<TInput>, actor: Actor) => Promise<TOutput>;
-  approvalTtlMs?: number;
+  inputSchema: TInput;
+  handler: (input: z.infer<TInput>, ctx: ActionContext) => Promise<unknown>;
 }
+
+export interface DefinedAction<TInput extends z.ZodTypeAny> {
+  name: string;
+  description: string;
+  permission: string;
+  input: TInput;
+  execute(rawInput: unknown, ctx: ActionContext): Promise<unknown>;
+}
+
+export type PermissionResult = "allow" | "deny" | "approval_required";
 
 export interface ActionEvent<TInput = unknown, TOutput = unknown> {
   eventId: string;
