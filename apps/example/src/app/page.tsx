@@ -49,18 +49,6 @@ export default function Home() {
           onError={(error: Error | string) => console.error("Notify error:", error)}
         />
       </section>
-
-      <section style={{ marginBottom: "2rem" }}>
-        <h2>Trace Viewer</h2>
-        <p>Browse action events and inspect containment violations.</p>
-        <a href="/traces" style={{ color: "#0066cc" }}>Open Trace List →</a>
-      </section>
-
-      <section style={{ marginBottom: "2rem" }}>
-        <h2>Contained Actors</h2>
-        <p>Review and lift/revoke actors that have been automatically contained.</p>
-        <a href="/actors" style={{ color: "#0066cc" }}>Open Contained Actors Panel →</a>
-      </section>
     </main>
   );
 }
