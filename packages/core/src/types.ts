@@ -26,12 +26,82 @@ export class ActionValidationError extends Error {
   }
 }
 
+export class ActionPermissionError extends Error {
+  constructor(
+    message: string,
+    public readonly permission: string,
+    public readonly permissionResult: "deny"
+  ) {
+    super(message);
+    this.name = "ActionPermissionError";
+  }
+}
+
+export class ActionPendingApprovalError extends Error {
+  constructor(
+    message: string,
+    public readonly permission: string,
+    public readonly approvalId: string
+  ) {
+    super(message);
+    this.name = "ActionPendingApprovalError";
+  }
+}
+
+export type PermissionResult = "allow" | "deny" | "approval_required";
+
+export type PermissionRule = {
+  actorId?: string;
+  actorType?: Actor["actorType"];
+  permissionKey: string;
+  result: PermissionResult;
+};
+
+export interface PermissionEngine {
+  check(
+    actor: Actor,
+    action: DefinedAction<any>,
+    input: unknown,
+    workspaceId: string
+  ): Promise<PermissionResult>;
+}
+
+export interface ActionApproval {
+  id: string;
+  actionEventId: string;
+  actionName: string;
+  input: unknown;
+  actorType: Actor["actorType"];
+  actorId: string;
+  workspaceId: string;
+  status: "pending" | "approved" | "rejected" | "expired";
+  requestedAt: Date;
+  expiresAt: Date;
+  resolvedAt: Date | null;
+  approvedBy: string | null;
+}
+
+export interface InsertActionApproval {
+  actionEventId: string;
+  actionName: string;
+  input: unknown;
+  actorType: Actor["actorType"];
+  actorId: string;
+  workspaceId: string;
+  status: "pending" | "approved" | "rejected" | "expired";
+  requestedAt: Date;
+  expiresAt: Date;
+  resolvedAt: Date | null;
+  approvedBy: string | null;
+}
+
 export interface ActionConfig<TInput extends z.ZodTypeAny> {
   name: string;
   description: string;
   permission: string;
   inputSchema: TInput;
   handler: (input: z.infer<TInput>, ctx: ActionContext) => Promise<unknown>;
+  approvalTtlMs?: number;
 }
 
 export interface ActionResult<T = unknown> {
@@ -47,11 +117,10 @@ export interface DefinedAction<TInput extends z.ZodTypeAny> {
   execute(
     rawInput: unknown,
     ctx: ActionContext,
-    dbClient?: DbClient
+    dbClient?: DbClient,
+    permissionEngine?: PermissionEngine
   ): Promise<ActionResult<unknown>>;
 }
-
-export type PermissionResult = "allow" | "deny" | "approval_required";
 
 export interface ActionEvent<TInput = unknown, TOutput = unknown> {
   eventId: string;
@@ -86,4 +155,9 @@ export interface InsertActionEvent {
 export interface DbClient {
   insertActionEvent(event: InsertActionEvent): Promise<{ id: string }>;
   updateActionEvent(id: string, event: Partial<InsertActionEvent>): Promise<void>;
+  insertActionApproval(approval: InsertActionApproval): Promise<{ id: string }>;
+  updateActionApproval(id: string, event: Partial<InsertActionApproval>): Promise<void>;
+  findPendingApprovals(workspaceId: string): Promise<ActionApproval[]>;
+  findAllPendingApprovals(): Promise<ActionApproval[]>;
+  findApprovalById(id: string): Promise<ActionApproval | null>;
 }

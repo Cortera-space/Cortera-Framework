@@ -75,7 +75,7 @@ describe("defineAction - event logging", () => {
     expect(event?.input).toEqual({ message: "hello" });
     expect(event?.output).toEqual({ message: "hello" });
     expect(event?.error).toBeNull();
-    expect(event?.permissionResult).toBe("allowed");
+    expect(event?.permissionResult).toBe("allow");
     expect(event?.parentEventId).toBeNull();
     expect(event?.workspaceId).toBe("ws-1");
     expect(event?.startedAt).toBeInstanceOf(Date);
@@ -108,7 +108,7 @@ describe("defineAction - event logging", () => {
       'Invalid input for action "strict"'
     );
     expect((event?.error as any)?.issues).toBeDefined();
-    expect(event?.permissionResult).toBe("allowed");
+    expect(event?.permissionResult).toBe("allow");
     expect(event?.parentEventId).toBeNull();
     expect(event?.durationMs).toBeNull();
   });
@@ -136,7 +136,7 @@ describe("defineAction - event logging", () => {
     expect(event?.error).toBeDefined();
     expect((event?.error as any)?.message).toBe("handler exploded");
     expect((event?.error as any)?.stack).toBeDefined();
-    expect(event?.permissionResult).toBe("allowed");
+    expect(event?.permissionResult).toBe("allow");
     expect(event?.durationMs).toBeGreaterThanOrEqual(0);
   });
 
