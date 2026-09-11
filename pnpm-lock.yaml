@@ -99,6 +99,13 @@ importers:
       next:
         specifier: ^14.0.0
         version: 14.2.35(react-dom@18.3.1)(react@18.3.1)
+      pg:
+        specifier: ^8.11.0
+        version: 8.23.0
+    devDependencies:
+      vitest:
+        specifier: ^1.0.0
+        version: 1.6.1(@types/node@20.19.43)(jsdom@22.1.0)
 
   packages/core:
     dependencies:

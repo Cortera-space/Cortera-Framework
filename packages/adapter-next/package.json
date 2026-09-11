@@ -17,8 +17,12 @@
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit"
   },
+  "devDependencies": {
+    "vitest": "^1.0.0"
+  },
   "dependencies": {
-    "@tera/core": "workspace:*"
+    "@tera/core": "workspace:*",
+    "pg": "^8.11.0"
   },
   "peerDependencies": {
     "next": "^14.0.0"
