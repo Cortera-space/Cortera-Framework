@@ -1,4 +1,5 @@
 import type { Actor } from "@tera/core";
+import type { NextRequest } from "next/server";
 
 export interface ApiKeyMapping {
   [apiKey: string]: { actorId: string; actorType: Actor["actorType"] };

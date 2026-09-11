@@ -27,7 +27,7 @@ describe("POST /app/actions/[actionName]", () => {
   });
 
   it("returns 200 with result on successful action call", async () => {
-    const { POST } = await import("@/app/actions/[actionName]/route");
+    const { POST } = await import("@/app/api/actions/[actionName]/route");
     const request = makeRequest("http://localhost/app/actions/createNote", {
       method: "POST",
       body: { title: "Hello", content: "World" },
@@ -42,7 +42,7 @@ describe("POST /app/actions/[actionName]", () => {
   });
 
   it("returns 404 for unknown action", async () => {
-    const { POST } = await import("@/app/actions/[actionName]/route");
+    const { POST } = await import("@/app/api/actions/[actionName]/route");
     const request = makeRequest("http://localhost/app/actions/nonexistent", {
       method: "POST",
       headers: { "x-tera-api-key": "sk-agent-123" },
@@ -56,7 +56,7 @@ describe("POST /app/actions/[actionName]", () => {
   });
 
   it("returns 400 with details on validation failure", async () => {
-    const { POST } = await import("@/app/actions/[actionName]/route");
+    const { POST } = await import("@/app/api/actions/[actionName]/route");
     const request = makeRequest("http://localhost/app/actions/createNote", {
       method: "POST",
       body: { title: "", content: "" },
@@ -73,7 +73,7 @@ describe("POST /app/actions/[actionName]", () => {
   });
 
   it("returns 403 on permission denial", async () => {
-    const { POST } = await import("@/app/actions/[actionName]/route");
+    const { POST } = await import("@/app/api/actions/[actionName]/route");
     const request = makeRequest("http://localhost/app/actions/notifyWatchers", {
       method: "POST",
       body: { noteId: "1", title: "Hi" },
@@ -90,7 +90,7 @@ describe("POST /app/actions/[actionName]", () => {
   });
 
   it("returns 202 with approvalId on approval_required", async () => {
-    const { POST } = await import("@/app/actions/[actionName]/route");
+    const { POST } = await import("@/app/api/actions/[actionName]/route");
     const request = makeRequest("http://localhost/app/actions/deleteCustomer", {
       method: "POST",
       body: { id: "cust-1" },
@@ -109,7 +109,7 @@ describe("POST /app/actions/[actionName]", () => {
   });
 
   it("returns 401 when no actor identity is found", async () => {
-    const { POST } = await import("@/app/actions/[actionName]/route");
+    const { POST } = await import("@/app/api/actions/[actionName]/route");
     const request = makeRequest("http://localhost/app/actions/createNote", {
       method: "POST",
       body: { title: "Hello", content: "World" },
@@ -131,7 +131,7 @@ describe("POST /app/actions/approvals/[approvalId]", () => {
     dbClient.actorStates.clear();
     (dbClient as any).approvals = [];
 
-    const { POST: actionPost } = await import("@/app/actions/[actionName]/route");
+    const { POST: actionPost } = await import("@/app/api/actions/[actionName]/route");
     const req = makeRequest("http://localhost/app/actions/deleteCustomer", {
       method: "POST",
       body: { id: "cust-1" },
@@ -145,7 +145,7 @@ describe("POST /app/actions/approvals/[approvalId]", () => {
   });
 
   it("resolves an approved approval and returns ok", async () => {
-    const { POST } = await import("@/app/actions/approvals/[approvalId]/route");
+    const { POST } = await import("@/app/api/actions/approvals/[approvalId]/route");
     const request = makeRequest(
       `http://localhost/app/actions/approvals/${approvalId}`,
       {
@@ -165,7 +165,7 @@ describe("POST /app/actions/approvals/[approvalId]", () => {
   });
 
   it("resolves a rejected approval and returns ok", async () => {
-    const { POST } = await import("@/app/actions/approvals/[approvalId]/route");
+    const { POST } = await import("@/app/api/actions/approvals/[approvalId]/route");
     const request = makeRequest(
       `http://localhost/app/actions/approvals/${approvalId}`,
       {
@@ -185,7 +185,7 @@ describe("POST /app/actions/approvals/[approvalId]", () => {
   });
 
   it("returns 404 for unknown approval", async () => {
-    const { POST } = await import("@/app/actions/approvals/[approvalId]/route");
+    const { POST } = await import("@/app/api/actions/approvals/[approvalId]/route");
     const request = makeRequest("http://localhost/app/actions/approvals/unknown", {
       method: "POST",
       body: { decision: "approved" },
@@ -201,7 +201,7 @@ describe("POST /app/actions/approvals/[approvalId]", () => {
   });
 
   it("returns 401 when no actor identity is found", async () => {
-    const { POST } = await import("@/app/actions/approvals/[approvalId]/route");
+    const { POST } = await import("@/app/api/actions/approvals/[approvalId]/route");
     const request = makeRequest(`http://localhost/app/actions/approvals/${approvalId}`, {
       method: "POST",
       body: { decision: "approved" },
@@ -220,7 +220,7 @@ describe("POST /app/actors/[actorId]/review", () => {
   });
 
   it("lifts a contained actor and returns ok", async () => {
-    const { POST: actionPost } = await import("@/app/actions/[actionName]/route");
+    const { POST: actionPost } = await import("@/app/api/actions/[actionName]/route");
     const req = makeRequest("http://localhost/app/actions/restrictedNote", {
       method: "POST",
       body: { title: "Root", content: "Blast radius root" },

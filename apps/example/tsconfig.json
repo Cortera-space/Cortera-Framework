@@ -12,7 +12,8 @@
       "@/*": ["./src/*"],
       "@tera/core": ["../../packages/core/src/index.ts"],
       "@tera/adapter-next": ["../../packages/adapter-next/src/index.ts"],
-      "@tera/db": ["../../packages/db/src/index.ts"]
+      "@tera/db": ["../../packages/db/src/index.ts"],
+      "@tera/ui": ["../../packages/ui/src/index.ts"]
     },
     "plugins": [
       {
