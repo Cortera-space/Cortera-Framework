@@ -1,0 +1,193 @@
+import type {
+  Actor,
+  ActionContext,
+  ActorState,
+  InsertActorState,
+  ActionEventLookup,
+  DefinedAction,
+  DbClient,
+} from "./types";
+import { ActionContainmentError } from "./types";
+
+function matchesBlastRadius(permissionKey: string, patterns: string[]): boolean {
+  for (const pattern of patterns) {
+    const regex = new RegExp("^" + pattern.replace(/\*/g, ".*") + "$");
+    if (regex.test(permissionKey)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+async function walkToRootAction(
+  dbClient: DbClient,
+  parentEventId: string
+): Promise<ActionEventLookup | null> {
+  let currentId: string | null = parentEventId;
+  let rootEvent: ActionEventLookup | null = null;
+
+  while (currentId !== null) {
+    const event = await dbClient.findEventById(currentId);
+    if (!event) {
+      break;
+    }
+    rootEvent = event;
+    currentId = event.parentEventId;
+  }
+
+  return rootEvent;
+}
+
+export async function getActorState(
+  dbClient: DbClient,
+  actor: Actor,
+  workspaceId: string
+): Promise<ActorState | null> {
+  return dbClient.findActorState(actor.actorId, workspaceId);
+}
+
+export async function checkActorContainment(
+  dbClient: DbClient,
+  actor: Actor,
+  workspaceId: string
+): Promise<void> {
+  const state = await getActorState(dbClient, actor, workspaceId);
+  if (!state || state.status === "active") {
+    return;
+  }
+
+  const errorCode = state.status === "contained" ? "ACTOR_CONTAINED" : "ACTOR_REVOKED";
+  const message =
+    state.status === "contained"
+      ? `actor is contained: ${state.containedReason ?? "no reason provided"}`
+      : "actor is revoked";
+
+  if (dbClient) {
+    const insertEvent = {
+      actionName: "unknown",
+      actorType: actor.actorType,
+      actorId: actor.actorId,
+      input: null,
+      output: null,
+      error: { code: errorCode, message },
+      permissionResult: "deny" as const,
+      approvedBy: null,
+      parentEventId: null,
+      startedAt: new Date(),
+      durationMs: null,
+      workspaceId,
+      blastRadius: null,
+    };
+
+    await dbClient.insertActionEvent(insertEvent as any);
+  }
+
+  throw new ActionContainmentError(message, errorCode, "deny");
+}
+
+export async function checkBlastRadius(
+  dbClient: DbClient,
+  ctx: ActionContext,
+  action: DefinedAction<any>
+): Promise<void> {
+  if (!ctx.parentEventId) {
+    return;
+  }
+
+  const rootEvent = await walkToRootAction(dbClient, ctx.parentEventId);
+  if (!rootEvent || !rootEvent.blastRadius || rootEvent.blastRadius.length === 0) {
+    return;
+  }
+
+  const permissionKey = action.permission;
+  const withinBlastRadius = matchesBlastRadius(permissionKey, rootEvent.blastRadius);
+
+  if (withinBlastRadius) {
+    return;
+  }
+
+  const reason = `action "${action.name}" (${permissionKey}) exceeds blast radius of root action "${rootEvent.actionName}" (${rootEvent.blastRadius.join(", ")})`;
+
+  const now = new Date();
+  const insertState: InsertActorState = {
+    actorId: ctx.actor.actorId,
+    workspaceId: ctx.workspaceId,
+    status: "contained",
+    containedAt: now,
+    containedReason: reason,
+    reviewedBy: null,
+    reviewedAt: null,
+  };
+
+  await dbClient.upsertActorState(insertState);
+
+  const insertEvent = {
+    actionName: action.name,
+    actorType: ctx.actor.actorType,
+    actorId: ctx.actor.actorId,
+    input: null,
+    output: null,
+    error: {
+      code: "BLAST_RADIUS_EXCEEDED",
+      message: reason,
+      rootAction: rootEvent.actionName,
+      rootBlastRadius: rootEvent.blastRadius,
+      violatingAction: action.name,
+      violatingPermission: permissionKey,
+    },
+    permissionResult: "deny" as const,
+    approvedBy: null,
+    parentEventId: ctx.parentEventId,
+    startedAt: new Date(),
+    durationMs: null,
+    workspaceId: ctx.workspaceId,
+    blastRadius: action.blastRadius ?? null,
+  };
+
+  await dbClient.insertActionEvent(insertEvent as any);
+
+  throw new ActionContainmentError(reason, "BLAST_RADIUS_EXCEEDED", "deny");
+}
+
+export async function reviewContainedActor(
+  dbClient: DbClient,
+  actorId: string,
+  workspaceId: string,
+  decision: "lift" | "revoke",
+  reviewerActorId: string
+): Promise<void> {
+  const existing = await dbClient.findActorState(actorId, workspaceId);
+  if (!existing) {
+    return;
+  }
+
+  if (decision === "revoke") {
+    await dbClient.upsertActorState({
+      actorId,
+      workspaceId,
+      status: "revoked",
+      containedAt: existing.containedAt,
+      containedReason: existing.containedReason,
+      reviewedBy: reviewerActorId,
+      reviewedAt: new Date(),
+    });
+    return;
+  }
+
+  if (decision === "lift") {
+    if (existing.status === "revoked") {
+      throw new Error(
+        `cannot lift actor "${actorId}" in workspace "${workspaceId}": actor is revoked (permanent)`
+      );
+    }
+    await dbClient.upsertActorState({
+      actorId,
+      workspaceId,
+      status: "active",
+      containedAt: null,
+      containedReason: null,
+      reviewedBy: reviewerActorId,
+      reviewedAt: new Date(),
+    });
+  }
+}

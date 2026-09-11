@@ -8,3 +8,9 @@ export {
   expirePendingApprovals,
   buildApprovalError,
 } from "./approval-service";
+export {
+  checkActorContainment,
+  checkBlastRadius,
+  reviewContainedActor,
+  getActorState,
+} from "./containment";

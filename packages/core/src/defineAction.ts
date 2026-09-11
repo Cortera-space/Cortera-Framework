@@ -3,11 +3,13 @@ import {
   ActionValidationError,
   ActionPermissionError,
   ActionPendingApprovalError,
+  ActionContainmentError,
   type InsertActionEvent,
   type InsertActionApproval,
 } from "./types";
 import type { ActionConfig, DefinedAction } from "./types";
 import { recordEvent, updateEvent } from "./event-log";
+import { checkActorContainment, checkBlastRadius } from "./containment";
 
 export function defineAction<TInput extends z.ZodTypeAny>(
   config: ActionConfig<TInput>
@@ -16,13 +18,34 @@ export function defineAction<TInput extends z.ZodTypeAny>(
     throw new Error(`Action "${config.name}" must have a non-empty description`);
   }
 
+  if (config.blastRadius === undefined) {
+    console.warn(
+      `Action "${config.name}" has no blastRadius declared — recommend setting blastRadius to restrict the scope of downstream actions this action may trigger`
+    );
+  }
+
   return {
     name: config.name,
     description: config.description,
     permission: config.permission,
     input: config.inputSchema,
+    blastRadius: config.blastRadius,
     async execute(rawInput, ctx, dbClient, permissionEngine) {
       const startedAt = new Date();
+
+      if (dbClient) {
+        try {
+          await checkActorContainment(dbClient, ctx.actor, ctx.workspaceId);
+        } catch (error) {
+          if (error instanceof ActionContainmentError) {
+            throw error;
+          }
+          throw error;
+        }
+
+        await checkBlastRadius(dbClient, ctx, this);
+      }
+
       const permissionResult = permissionEngine
         ? await permissionEngine.check(
             ctx.actor,
@@ -47,6 +70,7 @@ export function defineAction<TInput extends z.ZodTypeAny>(
             startedAt,
             durationMs: null,
             workspaceId: ctx.workspaceId,
+            blastRadius: config.blastRadius ?? null,
           };
           await recordEvent(dbClient, insertEvent);
         }
@@ -80,6 +104,7 @@ export function defineAction<TInput extends z.ZodTypeAny>(
           startedAt,
           durationMs: null,
           workspaceId: ctx.workspaceId,
+          blastRadius: config.blastRadius ?? null,
         };
         const { id: eventId } = await recordEvent(dbClient, insertEvent);
 
@@ -129,6 +154,7 @@ export function defineAction<TInput extends z.ZodTypeAny>(
             startedAt,
             durationMs: null,
             workspaceId: ctx.workspaceId,
+            blastRadius: config.blastRadius ?? null,
           };
           await recordEvent(dbClient, insertEvent);
         }
@@ -155,6 +181,7 @@ export function defineAction<TInput extends z.ZodTypeAny>(
           startedAt,
           durationMs: null,
           workspaceId: ctx.workspaceId,
+          blastRadius: config.blastRadius ?? null,
         };
         const { id } = await recordEvent(dbClient, insertEvent);
         eventId = id;
