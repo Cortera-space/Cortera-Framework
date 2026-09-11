@@ -195,49 +195,6 @@ export interface InsertActionEvent {
   blastRadius: string[] | null;
 }
 
-export interface ActionEventFull {
-  eventId: string;
-  actionName: string;
-  actorType: Actor["actorType"];
-  actorId: string;
-  permissionResult: PermissionResult;
-  status: string;
-  input: unknown;
-  output: unknown | null;
-  error: unknown | null;
-  parentEventId: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-  startedAt: Date;
-  durationMs: number | null;
-  workspaceId: string;
-  blastRadius: string[] | null;
-}
-
-export interface EventTreeNode {
-  event: ActionEventFull;
-  children: EventTreeNode[];
-}
-
-export interface EventWithChain {
-  event: ActionEventFull;
-  ancestors: ActionEventFull[];
-  descendants: EventTreeNode[];
-}
-
-export interface ListEventsFilters {
-  actorType?: Actor["actorType"];
-  actionName?: string;
-  permissionResult?: PermissionResult;
-  from?: Date;
-  to?: Date;
-}
-
-export interface ListEventsResult {
-  events: ActionEventFull[];
-  nextCursor: { startedAt: Date; id: string } | null;
-}
-
 export interface DbClient {
   insertActionEvent(event: InsertActionEvent): Promise<{ id: string }>;
   updateActionEvent(id: string, event: Partial<InsertActionEvent>): Promise<void>;
@@ -249,12 +206,4 @@ export interface DbClient {
   findEventById(id: string): Promise<ActionEventLookup | null>;
   findActorState(actorId: string, workspaceId: string): Promise<ActorState | null>;
   upsertActorState(state: InsertActorState): Promise<void>;
-  listEvents(
-    workspaceId: string,
-    filters: ListEventsFilters,
-    limit: number,
-    cursor?: { startedAt: Date; id: string }
-  ): Promise<ListEventsResult>;
-  getEventWithChain(eventId: string): Promise<EventWithChain | null>;
-  listContainedActors(workspaceId: string): Promise<ActorState[]>;
 }
