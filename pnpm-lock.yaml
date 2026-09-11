@@ -87,6 +87,9 @@ importers:
       tsx:
         specifier: ^4.23.13
         version: 4.23.13
+      vitest:
+        specifier: ^1.0.0
+        version: 1.6.1(@types/node@20.19.43)
 
   packages/adapter-next:
     dependencies:

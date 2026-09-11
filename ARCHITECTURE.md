@@ -166,3 +166,48 @@ add Actions to it. Tera is not a standalone framework.
 Realtime features (live audit tail, realtime approval notifications) use
 **Postgres LISTEN/NOTIFY** or **Supabase Realtime**. No separate message
 queue is introduced at this stage.
+
+## 9. Adapter Layer — REST (Stage 4)
+
+Tera ships on top of Next.js. The `@tera/adapter-next` package provides
+route handler generators that expose every registered Action as a REST
+endpoint with zero manual route code per Action.
+
+### Routes
+
+| Path | Method | Description |
+|------|--------|-------------|
+| `/app/actions/[actionName]/route.ts` | POST | Execute an Action |
+| `/app/actions/approvals/[approvalId]/route.ts` | POST | Resolve an approval |
+| `/app/actors/[actorId]/review/route.ts` | POST | Review containment |
+
+### Error Mapping
+
+- `200` — success with `{ result }`
+- `400` — `ActionValidationError` with `{ error, details }`
+- `401` — no actor identity found
+- `403` — `ActionPermissionError` or `ActionContainmentError` with `{ error, reason }`
+- `404` — action not found or approval not found
+- `202` — `ActionPendingApprovalError` with `{ status: "pending", approvalId }`
+- `409` — approval is not pending or expired, or cannot lift a revoked actor
+- `500` — unhandled error (internal details logged only)
+
+### Placeholder Auth Strategy
+
+The adapter provides a simple actor resolution strategy. This is a
+placeholder for real auth/API-key management (later stage).
+
+Resolution order:
+
+1. **API Key**: If an `x-tera-api-key` header is present, look it up in a
+   simple `ApiKeyMapping` map. Each key maps to `{ actorId, actorType }`.
+   Example: `{ "sk-agent-123": { actorId: "agent-1", actorType: "agent" } }`.
+2. **Session Cookie**: If a `tera-session` cookie is present, parse it as
+   JSON containing `{ actorId, actorType }`. This represents a human
+   session from the app's auth layer.
+3. **Fallback**: If neither is present, the request is unauthenticated
+   and receives a `401` response.
+
+In production, the `resolveActor` function should be replaced with a
+proper integration to the app's auth system (NextAuth, Clerk, Supabase,
+etc.) that extracts the actor identity from the authenticated session.

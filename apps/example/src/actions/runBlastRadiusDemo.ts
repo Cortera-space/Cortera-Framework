@@ -1,7 +1,7 @@
 import { restrictedNoteAction } from "./restrictedNote";
 import { createNoteAction } from "./createNote";
 import { deleteAllCustomersAction } from "./deleteAllCustomers";
-import { reviewContainedActor, getActorState } from "@tera/core";
+import { reviewContainedActor } from "@tera/core";
 
 const ctx = {
   actor: { actorType: "agent" as const, actorId: "demo-agent" },
