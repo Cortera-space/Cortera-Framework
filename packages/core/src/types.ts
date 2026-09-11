@@ -8,7 +8,13 @@ export type Actor = {
 export type ActionContext = {
   actor: Actor;
   workspaceId: string;
+  parentEventId?: string;
+  eventId?: string;
 };
+
+export function withParent(ctx: ActionContext, parentEventId: string): ActionContext {
+  return { ...ctx, parentEventId };
+}
 
 export class ActionValidationError extends Error {
   constructor(
@@ -28,12 +34,21 @@ export interface ActionConfig<TInput extends z.ZodTypeAny> {
   handler: (input: z.infer<TInput>, ctx: ActionContext) => Promise<unknown>;
 }
 
+export interface ActionResult<T = unknown> {
+  result: T;
+  eventId: string;
+}
+
 export interface DefinedAction<TInput extends z.ZodTypeAny> {
   name: string;
   description: string;
   permission: string;
   input: TInput;
-  execute(rawInput: unknown, ctx: ActionContext): Promise<unknown>;
+  execute(
+    rawInput: unknown,
+    ctx: ActionContext,
+    dbClient?: DbClient
+  ): Promise<ActionResult<unknown>>;
 }
 
 export type PermissionResult = "allow" | "deny" | "approval_required";
@@ -51,4 +66,24 @@ export interface ActionEvent<TInput = unknown, TOutput = unknown> {
   parentEventId: string | null;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface InsertActionEvent {
+  actionName: string;
+  actorType: Actor["actorType"];
+  actorId: string;
+  input: unknown;
+  output: unknown | null;
+  error: unknown | null;
+  permissionResult: string;
+  approvedBy: string | null;
+  parentEventId: string | null;
+  startedAt: Date;
+  durationMs: number | null;
+  workspaceId: string;
+}
+
+export interface DbClient {
+  insertActionEvent(event: InsertActionEvent): Promise<{ id: string }>;
+  updateActionEvent(id: string, event: Partial<InsertActionEvent>): Promise<void>;
 }

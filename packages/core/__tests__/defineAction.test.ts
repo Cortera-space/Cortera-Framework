@@ -1,11 +1,27 @@
 import { describe, it, expect, vi } from "vitest";
 import { z } from "zod";
-import { defineAction, ActionRegistry, ActionValidationError } from "../src/index";
+import { defineAction, ActionRegistry, ActionValidationError, type ActionContext, type DbClient, type InsertActionEvent } from "../src/index";
 
-const makeCtx = () => ({
+const makeCtx = (overrides?: Partial<ActionContext>): ActionContext => ({
   actor: { actorType: "human" as const, actorId: "user-1" },
   workspaceId: "ws-1",
+  ...overrides,
 });
+
+class MockDbClient implements DbClient {
+  public events: InsertActionEvent[] = [];
+  async insertActionEvent(event: InsertActionEvent): Promise<{ id: string }> {
+    const id = `event-${this.events.length + 1}`;
+    this.events.push(event);
+    return { id };
+  }
+  async updateActionEvent(_id: string, event: Partial<InsertActionEvent>): Promise<void> {
+    const existing = this.events.find((e) => e.actionName === event.actionName);
+    if (existing) {
+      Object.assign(existing, event);
+    }
+  }
+}
 
 describe("defineAction", () => {
   it("valid input runs the handler and returns its result", async () => {
@@ -17,12 +33,14 @@ describe("defineAction", () => {
       handler: async (input) => input,
     });
 
-    const result = await action.execute({ message: "hello" }, makeCtx());
-    expect(result).toEqual({ message: "hello" });
+    const dbClient = new MockDbClient();
+    const result = await action.execute({ message: "hello" }, makeCtx(), dbClient);
+    expect(result.result).toEqual({ message: "hello" });
   });
 
   it("invalid input throws ActionValidationError and handler never runs", async () => {
     const handler = vi.fn();
+    const dbClient = new MockDbClient();
 
     const action = defineAction({
       name: "strict",
@@ -32,7 +50,7 @@ describe("defineAction", () => {
       handler,
     });
 
-    await expect(action.execute({ value: 123 }, makeCtx())).rejects.toThrow(
+    await expect(action.execute({ value: 123 }, makeCtx(), dbClient)).rejects.toThrow(
       ActionValidationError
     );
     expect(handler).not.toHaveBeenCalled();
