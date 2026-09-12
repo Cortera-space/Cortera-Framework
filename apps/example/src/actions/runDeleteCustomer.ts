@@ -8,6 +8,13 @@ import {
   type DbClient,
   type InsertActionEvent,
   type InsertActionApproval,
+  type ListEventsOptions,
+  type PaginatedResult,
+  type ActionEvent,
+  type ActionEventWithChain,
+  type ContainedActor,
+  type PendingApprovalWithEvent,
+  type ListPendingApprovalsOptions,
 } from "@tera/core";
 
 const makeCtx = (overrides?: Partial<ActionContext>): ActionContext => ({
@@ -79,6 +86,14 @@ class MockDbClient implements DbClient {
   async findEventById(_id: string): Promise<any | null> { return null; }
   async findActorState(_actorId: string, _workspaceId: string): Promise<any | null> { return null; }
   async upsertActorState(_state: any): Promise<void> {}
+
+  // Observability methods - not implemented for demo
+  async listEvents(_workspaceId: string, _options?: ListEventsOptions): Promise<PaginatedResult<ActionEvent>> {
+    return { items: [], nextCursor: null };
+  }
+  async getEventWithChain(_eventId: string): Promise<ActionEventWithChain | null> { return null; }
+  async listContainedActors(_workspaceId: string): Promise<ContainedActor[]> { return []; }
+  async listPendingApprovals(_workspaceId: string, _options?: ListPendingApprovalsOptions): Promise<PendingApprovalWithEvent[]> { return []; }
 }
 
 async function main() {

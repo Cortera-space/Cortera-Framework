@@ -1,14 +1,14 @@
 import { restrictedNoteAction } from "./restrictedNote";
 import { createNoteAction } from "./createNote";
 import { deleteAllCustomersAction } from "./deleteAllCustomers";
-import { reviewContainedActor } from "@tera/core";
+import { reviewContainedActor, type DbClient, type ListEventsOptions, type PaginatedResult, type ActionEvent, type ActionEventWithChain, type ContainedActor, type PendingApprovalWithEvent, type ListPendingApprovalsOptions } from "@tera/core";
 
 const ctx = {
   actor: { actorType: "agent" as const, actorId: "demo-agent" },
   workspaceId: "demo-workspace",
 };
 
-class MockDbClient {
+class MockDbClient implements DbClient {
   private events: Array<{
     id: string;
     actionName: string;
@@ -103,6 +103,14 @@ class MockDbClient {
       reviewedAt: state.reviewedAt,
     });
   }
+
+  // Observability methods - not implemented for demo
+  async listEvents(_workspaceId: string, _options?: ListEventsOptions): Promise<PaginatedResult<ActionEvent>> {
+    return { items: [], nextCursor: null };
+  }
+  async getEventWithChain(_eventId: string): Promise<ActionEventWithChain | null> { return null; }
+  async listContainedActors(_workspaceId: string): Promise<ContainedActor[]> { return []; }
+  async listPendingApprovals(_workspaceId: string, _options?: ListPendingApprovalsOptions): Promise<PendingApprovalWithEvent[]> { return []; }
 
   getEvents() {
     return this.events;

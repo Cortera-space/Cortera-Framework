@@ -1,39 +1,22 @@
-import { z } from "zod";
-import {
-  ActionRegistry,
-  defineAction,
-  InMemoryPermissionEngine,
-  type DbClient,
-  type InsertActionEvent,
-  type InsertActionApproval,
-  type ActionApproval,
-  type ActionEventLookup,
-  type ActorState,
-  type InsertActorState,
-  type ListEventsOptions,
-  type ListEventsFilters,
-  type PaginatedResult,
-  type ActionEvent,
-  type ActionEventWithChain,
-  type ContainedActor,
-  type PendingApprovalWithEvent,
-  type ListPendingApprovalsOptions,
-} from "@tera/core";
-import { resolveActorFromRequest, type ApiKeyMapping } from "@tera/adapter-next";
+import type {
+  DbClient,
+  InsertActionEvent,
+  InsertActionApproval,
+  ActionApproval,
+  ActionEventLookup,
+  ActorState,
+  InsertActorState,
+  ListEventsOptions,
+  ListEventsFilters,
+  PaginatedResult,
+  ActionEvent,
+  ActionEventWithChain,
+  ContainedActor,
+  PendingApprovalWithEvent,
+  ListPendingApprovalsOptions,
+} from "./types";
 
-export const registry = new ActionRegistry();
-
-export const permissionEngine = new InMemoryPermissionEngine();
-permissionEngine.addRule({ actorType: "human", permissionKey: "notes.create", result: "allow" });
-permissionEngine.addRule({ actorType: "agent", permissionKey: "notes.create", result: "allow" });
-permissionEngine.addRule({ actorType: "human", permissionKey: "notes.read", result: "allow" });
-permissionEngine.addRule({ actorType: "agent", permissionKey: "notes.read", result: "allow" });
-permissionEngine.addRule({ actorType: "human", permissionKey: "notifications.send", result: "deny" });
-permissionEngine.addRule({ actorType: "agent", permissionKey: "notifications.send", result: "allow" });
-permissionEngine.addRule({ actorType: "human", permissionKey: "customers.delete", result: "approval_required" });
-permissionEngine.addRule({ actorType: "agent", permissionKey: "customers.delete", result: "approval_required" });
-
-class InMemoryDbClient implements DbClient {
+export class InMemoryDbClient implements DbClient {
   public events: Array<InsertActionEvent & { id: string }> = [];
   public actorStates = new Map<string, ActorState>();
   private approvals: Array<ActionApproval> = [];
@@ -314,87 +297,3 @@ class InMemoryDbClient implements DbClient {
     });
   }
 }
-
-export const dbClient = new InMemoryDbClient();
-
-export const apiKeyMapping: Record<string, { actorId: string; actorType: "human" | "agent" | "system" }> = {
-  "sk-agent-123": { actorId: "agent-1", actorType: "agent" },
-  "sk-agent-456": { actorId: "agent-2", actorType: "agent" },
-};
-
-export const createNoteAction = defineAction({
-  name: "createNote",
-  description: "Creates a new note with a title and content",
-  permission: "notes.create",
-  inputSchema: z.object({
-    title: z.string().min(1),
-    content: z.string().min(1),
-  }),
-  handler: async (input) => {
-    return { id: "note-" + Date.now(), ...input };
-  },
-});
-
-export const restrictedNoteAction = defineAction({
-  name: "restrictedNote",
-  description: "Creates a note with a narrow blast radius",
-  permission: "notes.create",
-  inputSchema: z.object({
-    title: z.string().min(1),
-    content: z.string().min(1),
-  }),
-  blastRadius: ["notes.*"],
-  handler: async (input) => {
-    return { id: "note-" + Date.now(), ...input };
-  },
-});
-
-export const notifyWatchersAction = defineAction({
-  name: "notifyWatchers",
-  description: "Notifies watchers about a new note",
-  permission: "notifications.send",
-  inputSchema: z.object({
-    noteId: z.string(),
-    title: z.string(),
-  }),
-  handler: async (input) => {
-    return { notified: true, noteId: input.noteId };
-  },
-});
-
-export const deleteAllCustomersAction = defineAction({
-  name: "deleteAllCustomers",
-  description: "Deletes all customers — outside notes blast radius",
-  permission: "customers.delete",
-  inputSchema: z.object({
-    reason: z.string().optional(),
-  }),
-  handler: async (input) => {
-    return { deleted: true, reason: input.reason };
-  },
-});
-
-export const deleteCustomerAction = defineAction({
-  name: "deleteCustomer",
-  description: "Deletes a customer by ID",
-  permission: "customers.delete",
-  inputSchema: z.object({
-    id: z.string(),
-    reason: z.string().optional(),
-  }),
-  handler: async (input) => {
-    return { deleted: true, customerId: input.id };
-  },
-  approvalTtlMs: 24 * 60 * 60 * 1000,
-});
-
-registry.register(createNoteAction);
-registry.register(restrictedNoteAction);
-registry.register(notifyWatchersAction);
-registry.register(deleteAllCustomersAction);
-registry.register(deleteCustomerAction);
-
-
-export const defaultWorkspaceId = "default-workspace";
-
-export { resolveActorFromRequest, type ApiKeyMapping };
