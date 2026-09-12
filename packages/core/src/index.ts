@@ -14,3 +14,4 @@ export {
   reviewContainedActor,
   getActorState,
 } from "./containment";
+export { InMemoryDbClient } from "./test-utils";

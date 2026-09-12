@@ -211,3 +211,32 @@ Resolution order:
 In production, the `resolveActor` function should be replaced with a
 proper integration to the app's auth system (NextAuth, Clerk, Supabase,
 etc.) that extracts the actor identity from the authenticated session.
+
+---
+
+## 10. Observability & Approval Query API (Stage 7)
+
+Tera does not ship a prebuilt admin dashboard. This stage exposes the
+data/streaming primitives a developer needs to build their own. A
+first-party `@tera/dashboard` package may be added later, once real
+usage patterns are understood — deferred intentionally, not because
+it's out of scope forever.
+
+The following primitives are exposed:
+
+1. **REST Query Endpoints** (authenticated via API key/session):
+   - `GET /tera/events` — paginated action events with filters
+   - `GET /tera/events/:id/chain` — full ancestor/descendant event tree
+   - `GET /tera/actors/contained` — currently contained actors
+   - `GET /tera/approvals/pending` — pending approvals with full context
+
+2. **SSE Live Stream**:
+   - `GET /tera/events/stream` — Server-Sent Events stream of new action_events
+     matching workspace/filters, using Postgres LISTEN/NOTIFY
+
+3. **Action Endpoints** (already exist from Stages 3/3.5/4):
+   - `POST /actions/approvals/:approvalId` — resolve approval (approve/reject)
+   - `POST /actors/:actorId/review` — review containment (lift/revoke)
+
+Developers can build any dashboard UI against these primitives without
+depending on Tera's internal implementation.

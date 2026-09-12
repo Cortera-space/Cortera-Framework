@@ -179,6 +179,60 @@ export interface ActionEvent<TInput = unknown, TOutput = unknown> {
   updatedAt: Date;
 }
 
+export interface ActionEventWithChain extends ActionEvent {
+  ancestors: ActionEventWithChain[];
+  descendants: ActionEventWithChain[];
+}
+
+export interface ListEventsFilters {
+  actorType?: Actor["actorType"];
+  actionName?: string;
+  permissionResult?: PermissionResult;
+  from?: Date;
+  to?: Date;
+}
+
+export interface ListEventsOptions {
+  filters?: ListEventsFilters;
+  limit?: number;
+  cursor?: string;
+}
+
+export interface PaginatedResult<T> {
+  items: T[];
+  nextCursor: string | null;
+}
+
+export interface ContainedActor {
+  actorId: string;
+  workspaceId: string;
+  status: "contained" | "revoked";
+  containedAt: Date;
+  containedReason: string | null;
+  reviewedBy: string | null;
+  reviewedAt: Date | null;
+}
+
+export interface PendingApprovalWithEvent {
+  approval: ActionApproval;
+  event: {
+    actionName: string;
+    actorType: Actor["actorType"];
+    actorId: string;
+    input: unknown;
+    requestedAt: Date;
+    expiresAt: Date;
+  };
+}
+
+export interface ListPendingApprovalsFilters {
+  actionName?: string;
+}
+
+export interface ListPendingApprovalsOptions {
+  filters?: ListPendingApprovalsFilters;
+}
+
 export interface InsertActionEvent {
   actionName: string;
   actorType: Actor["actorType"];
@@ -206,4 +260,8 @@ export interface DbClient {
   findEventById(id: string): Promise<ActionEventLookup | null>;
   findActorState(actorId: string, workspaceId: string): Promise<ActorState | null>;
   upsertActorState(state: InsertActorState): Promise<void>;
+  listEvents(workspaceId: string, options?: ListEventsOptions): Promise<PaginatedResult<ActionEvent>>;
+  getEventWithChain(eventId: string): Promise<ActionEventWithChain | null>;
+  listContainedActors(workspaceId: string): Promise<ContainedActor[]>;
+  listPendingApprovals(workspaceId: string, options?: ListPendingApprovalsOptions): Promise<PendingApprovalWithEvent[]>;
 }

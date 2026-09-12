@@ -7,6 +7,14 @@ import type {
   ActionEventLookup,
   ActorState,
   InsertActorState,
+  ListEventsOptions,
+  ListEventsFilters,
+  PaginatedResult,
+  ActionEvent,
+  ActionEventWithChain,
+  ContainedActor,
+  PendingApprovalWithEvent,
+  ListPendingApprovalsOptions,
 } from "@tera/core";
 
 export type PostgresDbClientOptions = {
@@ -276,6 +284,257 @@ export class PostgresDbClient implements DbClient {
         state.reviewedAt,
       ]
     );
+  }
+
+  async listEvents(
+    workspaceId: string,
+    options?: ListEventsOptions
+  ): Promise<PaginatedResult<ActionEvent>> {
+    const { filters, limit = 50, cursor } = options ?? {};
+    const conditions: string[] = ["workspace_id = $1"];
+    const values: unknown[] = [workspaceId];
+    let idx = 2;
+
+    if (filters?.actorType) {
+      conditions.push(`actor_type = $${idx++}`);
+      values.push(filters.actorType);
+    }
+    if (filters?.actionName) {
+      conditions.push(`action_name = $${idx++}`);
+      values.push(filters.actionName);
+    }
+    if (filters?.permissionResult) {
+      conditions.push(`permission_result = $${idx++}`);
+      values.push(filters.permissionResult);
+    }
+    if (filters?.from) {
+      conditions.push(`started_at >= $${idx++}`);
+      values.push(filters.from);
+    }
+    if (filters?.to) {
+      conditions.push(`started_at <= $${idx++}`);
+      values.push(filters.to);
+    }
+    if (cursor) {
+      conditions.push(`started_at < $${idx++}`);
+      values.push(new Date(cursor));
+    }
+
+    const whereClause = conditions.join(" AND ");
+    const sql = `
+      SELECT id, action_name, actor_type, actor_id, input, output, error,
+             permission_result, approved_by, parent_event_id,
+             started_at, duration_ms, workspace_id, blast_radius
+      FROM action_events
+      WHERE ${whereClause}
+      ORDER BY started_at DESC
+      LIMIT $${idx}
+    `;
+    values.push(limit + 1);
+
+    const { rows } = await this.pool.query(sql, values);
+    const items = rows.slice(0, limit).map((row) => ({
+      eventId: row.id,
+      actionName: row.action_name,
+      actorType: row.actor_type as ActionEvent["actorType"],
+      actorId: row.actor_id,
+      permissionResult: row.permission_result as ActionEvent["permissionResult"],
+      status: "completed",
+      input: JSON.parse(row.input),
+      output: row.output ? JSON.parse(row.output) : null,
+      error: row.error ? JSON.parse(row.error) : null,
+      parentEventId: row.parent_event_id,
+      createdAt: new Date(row.started_at),
+      updatedAt: new Date(row.started_at),
+    }));
+
+    const nextCursor = rows.length > limit ? rows[limit - 1].started_at.toISOString() : null;
+    return { items, nextCursor };
+  }
+
+  async getEventWithChain(eventId: string): Promise<ActionEventWithChain | null> {
+    const ancestorRows = await this.getAncestors(eventId);
+    const descendantRows = await this.getDescendants(eventId);
+
+    const allRows = [...ancestorRows, ...descendantRows];
+    if (allRows.length === 0) {
+      return null;
+    }
+
+    const eventMap = new Map<string, ActionEventWithChain>();
+    for (const row of allRows) {
+      eventMap.set(row.id, {
+        eventId: row.id,
+        actionName: row.action_name,
+        actorType: row.actor_type as ActionEvent["actorType"],
+        actorId: row.actor_id,
+        permissionResult: row.permission_result as ActionEvent["permissionResult"],
+        status: "completed",
+        input: JSON.parse(row.input),
+        output: row.output ? JSON.parse(row.output) : null,
+        error: row.error ? JSON.parse(row.error) : null,
+        parentEventId: row.parent_event_id,
+        createdAt: new Date(row.started_at),
+        updatedAt: new Date(row.started_at),
+        ancestors: [],
+        descendants: [],
+      });
+    }
+
+    for (const event of eventMap.values()) {
+      if (event.parentEventId && eventMap.has(event.parentEventId)) {
+        const parent = eventMap.get(event.parentEventId)!;
+        parent.descendants.push(event);
+        event.ancestors.push(parent);
+      }
+    }
+
+    const rootEvent = eventMap.get(eventId);
+    if (!rootEvent) {
+      return null;
+    }
+
+    this.sortTree(rootEvent);
+    return rootEvent;
+  }
+
+  private async getAncestors(eventId: string) {
+    const rows: any[] = [];
+    let currentId: string | null = eventId;
+
+    while (currentId) {
+      const { rows: result } = await this.pool.query(
+        `SELECT id, action_name, actor_type, actor_id, input, output, error,
+                permission_result, approved_by, parent_event_id,
+                started_at, duration_ms, workspace_id, blast_radius
+         FROM action_events
+         WHERE id = $1`,
+        [currentId]
+      );
+      if (result.length === 0) break;
+      rows.unshift(result[0]);
+      currentId = result[0].parent_event_id;
+    }
+
+    return rows;
+  }
+
+  private async getDescendants(eventId: string) {
+    const rows: any[] = [];
+    const stack = [eventId];
+
+    while (stack.length > 0) {
+      const parentId = stack.pop()!;
+      const { rows: result } = await this.pool.query(
+        `SELECT id, action_name, actor_type, actor_id, input, output, error,
+                permission_result, approved_by, parent_event_id,
+                started_at, duration_ms, workspace_id, blast_radius
+         FROM action_events
+         WHERE parent_event_id = $1
+         ORDER BY started_at ASC`,
+        [parentId]
+      );
+      for (const row of result) {
+        rows.push(row);
+        stack.push(row.id);
+      }
+    }
+
+    return rows;
+  }
+
+  private sortTree(event: ActionEventWithChain) {
+    event.ancestors.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+    event.descendants.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+    for (const child of event.descendants) {
+      this.sortTree(child);
+    }
+  }
+
+  async listContainedActors(workspaceId: string): Promise<ContainedActor[]> {
+    const { rows } = await this.pool.query(
+      `SELECT actor_id, workspace_id, status, contained_at, contained_reason, reviewed_by, reviewed_at
+       FROM actor_states
+       WHERE workspace_id = $1 AND status IN ('contained', 'revoked')
+       ORDER BY contained_at DESC`,
+      [workspaceId]
+    );
+    return rows.map((row) => ({
+      actorId: row.actor_id,
+      workspaceId: row.workspace_id,
+      status: row.status as "contained" | "revoked",
+      containedAt: row.contained_at ? new Date(row.contained_at) : new Date(),
+      containedReason: row.contained_reason,
+      reviewedBy: row.reviewed_by,
+      reviewedAt: row.reviewed_at ? new Date(row.reviewed_at) : null,
+    }));
+  }
+
+  async listPendingApprovals(
+    workspaceId: string,
+    options?: ListPendingApprovalsOptions
+  ): Promise<PendingApprovalWithEvent[]> {
+    const { filters } = options ?? {};
+    let approvalSql = `
+      SELECT a.id, a.action_event_id, a.action_name, a.input, a.actor_type, a.actor_id,
+             a.workspace_id, a.status, a.requested_at, a.expires_at, a.resolved_at, a.approved_by
+      FROM action_approvals a
+      WHERE a.status = 'pending' AND a.workspace_id = $1
+    `;
+    const approvalValues: unknown[] = [workspaceId];
+    let idx = 2;
+
+    if (filters?.actionName) {
+      approvalSql += ` AND a.action_name = $${idx++}`;
+      approvalValues.push(filters.actionName);
+    }
+
+    approvalSql += ` ORDER BY a.requested_at ASC`;
+
+    const { rows: approvalRows } = await this.pool.query(approvalSql, approvalValues);
+
+    if (approvalRows.length === 0) {
+      return [];
+    }
+
+    const eventIds = approvalRows.map((r) => r.action_event_id);
+    const placeholders = eventIds.map((_, i) => `$${i + 1}`).join(",");
+    const { rows: eventRows } = await this.pool.query(
+      `SELECT id, action_name, actor_type, actor_id, input, started_at
+       FROM action_events
+       WHERE id IN (${placeholders})`,
+      eventIds
+    );
+
+    const eventMap = new Map(eventRows.map((r) => [r.id, r]));
+
+    return approvalRows.map((approval) => {
+      const event = eventMap.get(approval.action_event_id);
+      return {
+        approval: {
+          id: approval.id,
+          actionEventId: approval.action_event_id,
+          actionName: approval.action_name,
+          input: JSON.parse(approval.input),
+          actorType: approval.actor_type as ActionApproval["actorType"],
+          actorId: approval.actor_id,
+          workspaceId: approval.workspace_id,
+          status: approval.status as ActionApproval["status"],
+          requestedAt: new Date(approval.requested_at),
+          expiresAt: new Date(approval.expires_at),
+          resolvedAt: approval.resolved_at ? new Date(approval.resolved_at) : null,
+          approvedBy: approval.approved_by,
+        },
+        event: {
+          actionName: event?.action_name ?? approval.action_name,
+          actorType: (event?.actor_type ?? approval.actor_type) as ActionApproval["actorType"],
+          actorId: event?.actor_id ?? approval.actor_id,
+          input: event ? JSON.parse(event.input) : JSON.parse(approval.input),
+          requestedAt: event ? new Date(event.started_at) : new Date(approval.requested_at),
+          expiresAt: new Date(approval.expires_at),
+        },
+      };
+    });
   }
 
   async close(): Promise<void> {

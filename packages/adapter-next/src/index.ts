@@ -18,3 +18,12 @@ export {
   createReviewRouteHandler,
   type ReviewRouteOptions,
 } from "./review-route";
+
+export {
+  createEventsRouteHandler,
+  createEventChainRouteHandler,
+  createContainedActorsRouteHandler,
+  createPendingApprovalsRouteHandler,
+  createEventStreamRouteHandler,
+  type ObservabilityRouteOptions,
+} from "./observability-routes";
