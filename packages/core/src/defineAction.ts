@@ -200,7 +200,7 @@ export function defineAction<TInput extends z.ZodTypeAny>(
       }
 
       if (dryRun) {
-        return { wouldSucceed: true as const };
+        return { wouldSucceed: true as const, eventId };
       }
 
       try {

@@ -1,6 +1,15 @@
 import type { DefinedAction } from "@tera/core";
 import { zodToJsonSchema } from "zod-to-json-schema";
 
+interface JsonSchema {
+  $schema?: string;
+  $ref?: string;
+  type?: string;
+  properties?: Record<string, unknown>;
+  definitions?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
 export interface McpToolSchema {
   name: string;
   description: string;
@@ -12,9 +21,9 @@ export function generateMcpToolSchema(action: DefinedAction<any>): McpToolSchema
     name: action.name,
     target: "jsonSchema7",
     $refStrategy: "none",
-  }) as Record<string, unknown>;
+  }) as JsonSchema;
 
-  let inputSchema = { ...jsonSchema, $schema: "http://json-schema.org/draft-07/schema#" };
+  let inputSchema: JsonSchema = { ...jsonSchema, $schema: "http://json-schema.org/draft-07/schema#" };
 
   if (inputSchema.$ref && typeof inputSchema.$ref === "string") {
     const refPath = inputSchema.$ref;
@@ -22,7 +31,7 @@ export function generateMcpToolSchema(action: DefinedAction<any>): McpToolSchema
       const defName = refPath.replace("#/definitions/", "");
       const definition = (jsonSchema.definitions as Record<string, unknown> | undefined)?.[defName];
       if (definition) {
-        inputSchema = { ...definition, $schema: "http://json-schema.org/draft-07/schema#" };
+        inputSchema = { ...definition as JsonSchema, $schema: "http://json-schema.org/draft-07/schema#" };
       }
     }
   }

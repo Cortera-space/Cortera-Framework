@@ -115,8 +115,8 @@ export class InMemoryDbClient implements DbClient {
     if (filters?.dryRun !== undefined) {
       filtered = filtered.filter((e) => e.dryRun === filters.dryRun);
     } else {
-      // Default: exclude dry-run events
-      filtered = filtered.filter((e) => e.dryRun === false);
+      // Default: exclude dry-run events (treat undefined as false for backward compat)
+      filtered = filtered.filter((e) => e.dryRun !== true);
     }
     if (cursor) {
       const cursorDate = new Date(cursor);
@@ -138,7 +138,7 @@ export class InMemoryDbClient implements DbClient {
       parentEventId: e.parentEventId,
       createdAt: e.startedAt,
       updatedAt: e.startedAt,
-      dryRun: e.dryRun,
+      dryRun: e.dryRun ?? false,
     }));
 
     const nextCursor = filtered.length > limit ? filtered[limit - 1].startedAt.toISOString() : null;
@@ -184,7 +184,7 @@ export class InMemoryDbClient implements DbClient {
         parentEventId: event.parentEventId,
         createdAt: event.startedAt,
         updatedAt: event.startedAt,
-        dryRun: event.dryRun,
+        dryRun: event.dryRun ?? false,
         ancestors: [],
         descendants: [],
       });
@@ -235,6 +235,7 @@ export class InMemoryDbClient implements DbClient {
         parentEventId: event.parentEventId,
         createdAt: event.createdAt,
         updatedAt: event.updatedAt,
+        dryRun: event.dryRun,
         ancestors: [],
         descendants: [],
       };

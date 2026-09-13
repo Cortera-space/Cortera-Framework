@@ -156,6 +156,7 @@ export interface ActionResult<T = unknown> {
 
 export interface DryRunResult {
   wouldSucceed: true;
+  eventId?: string;
 }
 
 export type ActionExecutionResult<T = unknown> = ActionResult<T> | DryRunResult;
@@ -260,7 +261,7 @@ export interface InsertActionEvent {
   durationMs: number | null;
   workspaceId: string;
   blastRadius: string[] | null;
-  dryRun: boolean;
+  dryRun?: boolean;
 }
 
 export interface DbClient {
