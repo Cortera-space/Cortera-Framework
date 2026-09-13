@@ -27,6 +27,21 @@ export function generateMcpToolSchema(action: DefinedAction<any>): McpToolSchema
     }
   }
 
+  // Inject dryRun field as a framework-level capability
+  if (inputSchema.type === "object" && inputSchema.properties) {
+    inputSchema = {
+      ...inputSchema,
+      properties: {
+        ...(inputSchema.properties as Record<string, unknown>),
+        dryRun: {
+          type: "boolean",
+          description: "If true, runs the full pre-execution pipeline (containment check, blast-radius evaluation, permission check, input validation) but does not invoke the handler. Returns { wouldSucceed: true } on success or the same error shape as a real failure.",
+          default: false,
+        },
+      },
+    };
+  }
+
   return {
     name: action.name,
     description: action.description,

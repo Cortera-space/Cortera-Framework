@@ -33,8 +33,8 @@ export class PostgresDbClient implements DbClient {
       `INSERT INTO action_events (
         action_name, actor_type, actor_id, input, output, error,
         permission_result, approved_by, parent_event_id,
-        started_at, duration_ms, workspace_id, blast_radius
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        started_at, duration_ms, workspace_id, blast_radius, dry_run
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
       RETURNING id`,
       [
         event.actionName,
@@ -50,6 +50,7 @@ export class PostgresDbClient implements DbClient {
         event.durationMs,
         event.workspaceId,
         event.blastRadius ?? null,
+        event.dryRun ?? false,
       ]
     );
     return { id: rows[0].id };
@@ -315,6 +316,13 @@ export class PostgresDbClient implements DbClient {
       conditions.push(`started_at <= $${idx++}`);
       values.push(filters.to);
     }
+    if (filters?.dryRun !== undefined) {
+      conditions.push(`dry_run = $${idx++}`);
+      values.push(filters.dryRun);
+    } else {
+      // Default: exclude dry-run events
+      conditions.push(`dry_run = false`);
+    }
     if (cursor) {
       conditions.push(`started_at < $${idx++}`);
       values.push(new Date(cursor));
@@ -324,7 +332,7 @@ export class PostgresDbClient implements DbClient {
     const sql = `
       SELECT id, action_name, actor_type, actor_id, input, output, error,
              permission_result, approved_by, parent_event_id,
-             started_at, duration_ms, workspace_id, blast_radius
+             started_at, duration_ms, workspace_id, blast_radius, dry_run
       FROM action_events
       WHERE ${whereClause}
       ORDER BY started_at DESC
@@ -346,15 +354,16 @@ export class PostgresDbClient implements DbClient {
       parentEventId: row.parent_event_id,
       createdAt: new Date(row.started_at),
       updatedAt: new Date(row.started_at),
+      dryRun: row.dry_run,
     }));
 
     const nextCursor = rows.length > limit ? rows[limit - 1].started_at.toISOString() : null;
     return { items, nextCursor };
   }
 
-  async getEventWithChain(eventId: string): Promise<ActionEventWithChain | null> {
-    const ancestorRows = await this.getAncestors(eventId);
-    const descendantRows = await this.getDescendants(eventId);
+  async getEventWithChain(eventId: string, includeDryRun = false): Promise<ActionEventWithChain | null> {
+    const ancestorRows = await this.getAncestors(eventId, includeDryRun);
+    const descendantRows = await this.getDescendants(eventId, includeDryRun);
 
     const allRows = [...ancestorRows, ...descendantRows];
     if (allRows.length === 0) {
@@ -376,6 +385,7 @@ export class PostgresDbClient implements DbClient {
         parentEventId: row.parent_event_id,
         createdAt: new Date(row.started_at),
         updatedAt: new Date(row.started_at),
+        dryRun: row.dry_run,
         ancestors: [],
         descendants: [],
       });
@@ -398,7 +408,7 @@ export class PostgresDbClient implements DbClient {
     return rootEvent;
   }
 
-  private async getAncestors(eventId: string) {
+  private async getAncestors(eventId: string, includeDryRun = false) {
     const rows: any[] = [];
     let currentId: string | null = eventId;
 
@@ -406,9 +416,9 @@ export class PostgresDbClient implements DbClient {
       const { rows: result } = await this.pool.query(
         `SELECT id, action_name, actor_type, actor_id, input, output, error,
                 permission_result, approved_by, parent_event_id,
-                started_at, duration_ms, workspace_id, blast_radius
+                started_at, duration_ms, workspace_id, blast_radius, dry_run
          FROM action_events
-         WHERE id = $1`,
+         WHERE id = $1${includeDryRun ? "" : " AND dry_run = false"}`,
         [currentId]
       );
       if (result.length === 0) break;
@@ -419,7 +429,7 @@ export class PostgresDbClient implements DbClient {
     return rows;
   }
 
-  private async getDescendants(eventId: string) {
+  private async getDescendants(eventId: string, includeDryRun = false) {
     const rows: any[] = [];
     const stack = [eventId];
 
@@ -428,9 +438,9 @@ export class PostgresDbClient implements DbClient {
       const { rows: result } = await this.pool.query(
         `SELECT id, action_name, actor_type, actor_id, input, output, error,
                 permission_result, approved_by, parent_event_id,
-                started_at, duration_ms, workspace_id, blast_radius
+                started_at, duration_ms, workspace_id, blast_radius, dry_run
          FROM action_events
-         WHERE parent_event_id = $1
+         WHERE parent_event_id = $1${includeDryRun ? "" : " AND dry_run = false"}
          ORDER BY started_at ASC`,
         [parentId]
       );

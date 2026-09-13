@@ -49,7 +49,8 @@ export async function getActorState(
 export async function checkActorContainment(
   dbClient: DbClient,
   actor: Actor,
-  workspaceId: string
+  workspaceId: string,
+  dryRun = false
 ): Promise<void> {
   const state = await getActorState(dbClient, actor, workspaceId);
   if (!state || state.status === "active") {
@@ -62,7 +63,7 @@ export async function checkActorContainment(
       ? `actor is contained: ${state.containedReason ?? "no reason provided"}`
       : "actor is revoked";
 
-  if (dbClient) {
+  if (dbClient && !dryRun) {
     const insertEvent = {
       actionName: "unknown",
       actorType: actor.actorType,
@@ -77,6 +78,7 @@ export async function checkActorContainment(
       durationMs: null,
       workspaceId,
       blastRadius: null,
+      dryRun,
     };
 
     await dbClient.insertActionEvent(insertEvent as any);
@@ -88,7 +90,8 @@ export async function checkActorContainment(
 export async function checkBlastRadius(
   dbClient: DbClient,
   ctx: ActionContext,
-  action: DefinedAction<any>
+  action: DefinedAction<any>,
+  dryRun = false
 ): Promise<void> {
   if (!ctx.parentEventId) {
     return;
@@ -108,18 +111,20 @@ export async function checkBlastRadius(
 
   const reason = `action "${action.name}" (${permissionKey}) exceeds blast radius of root action "${rootEvent.actionName}" (${rootEvent.blastRadius.join(", ")})`;
 
-  const now = new Date();
-  const insertState: InsertActorState = {
-    actorId: ctx.actor.actorId,
-    workspaceId: ctx.workspaceId,
-    status: "contained",
-    containedAt: now,
-    containedReason: reason,
-    reviewedBy: null,
-    reviewedAt: null,
-  };
+  if (!dryRun) {
+    const now = new Date();
+    const insertState: InsertActorState = {
+      actorId: ctx.actor.actorId,
+      workspaceId: ctx.workspaceId,
+      status: "contained",
+      containedAt: now,
+      containedReason: reason,
+      reviewedBy: null,
+      reviewedAt: null,
+    };
 
-  await dbClient.upsertActorState(insertState);
+    await dbClient.upsertActorState(insertState);
+  }
 
   const insertEvent = {
     actionName: action.name,
@@ -134,6 +139,7 @@ export async function checkBlastRadius(
       rootBlastRadius: rootEvent.blastRadius,
       violatingAction: action.name,
       violatingPermission: permissionKey,
+      dryRun,
     },
     permissionResult: "deny" as const,
     approvedBy: null,
@@ -142,11 +148,16 @@ export async function checkBlastRadius(
     durationMs: null,
     workspaceId: ctx.workspaceId,
     blastRadius: action.blastRadius ?? null,
+    dryRun,
   };
 
   await dbClient.insertActionEvent(insertEvent as any);
 
-  throw new ActionContainmentError(reason, "BLAST_RADIUS_EXCEEDED", "deny");
+  throw new ActionContainmentError(
+    dryRun ? `would be contained: ${reason}` : reason,
+    "BLAST_RADIUS_EXCEEDED",
+    "deny"
+  );
 }
 
 export async function reviewContainedActor(
