@@ -6,7 +6,6 @@ export {
 export {
   resolveActorFromRequest,
   type ResolveActorOptions,
-  type ApiKeyMapping,
 } from "./auth";
 
 export {

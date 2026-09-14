@@ -1,3 +1,4 @@
+import { createHash } from "crypto";
 import { z } from "zod";
 import {
   ActionRegistry,
@@ -36,6 +37,74 @@ class InMemoryDbClient implements DbClient {
   public events: Array<InsertActionEvent & { id: string }> = [];
   public actorStates = new Map<string, ActorState>();
   private approvals: Array<ActionApproval> = [];
+  private apiKeys = new Map<string, { id: string; keyHash: string; actorId: string; workspaceId: string; name: string; createdAt: Date; revokedAt: Date | null; lastUsedAt: Date | null }>();
+
+  constructor() {
+    // Pre-populate test API keys for backward compatibility with tests
+    const testKeys = [
+      { key: "sk-agent-123", actorId: "agent-1", name: "Test Agent 1" },
+      { key: "sk-agent-456", actorId: "agent-2", name: "Test Agent 2" },
+    ];
+    for (const { key, actorId, name } of testKeys) {
+      const keyHash = createHash("sha256").update(key).digest("hex");
+      const id = `key-${this.apiKeys.size + 1}-${Date.now()}`;
+      this.apiKeys.set(keyHash, { id, keyHash, actorId, workspaceId: "default-workspace", name, createdAt: new Date(), revokedAt: null, lastUsedAt: null });
+    }
+  }
+
+  async query(sql: string, params?: unknown[]): Promise<{ rows: any[]; rowCount: number }> {
+    // Normalize SQL for matching (remove extra whitespace and newlines)
+    const normalizedSql = sql.replace(/\s+/g, " ").trim();
+
+    if (normalizedSql.startsWith("INSERT INTO api_keys")) {
+      const [, keyHash, actorId, workspaceId, name] = params as [string, string, string, string, string];
+      const id = `key-${this.apiKeys.size + 1}-${Date.now()}`;
+      this.apiKeys.set(keyHash, { id, keyHash, actorId, workspaceId, name, createdAt: new Date(), revokedAt: null, lastUsedAt: null });
+      return { rows: [{ id }], rowCount: 1 };
+    }
+    if (normalizedSql.startsWith("SELECT id FROM api_keys WHERE key_hash")) {
+      const [keyHash] = params as [string];
+      const key = this.apiKeys.get(keyHash);
+      return { rows: key ? [{ id: key.id }] : [], rowCount: key ? 1 : 0 };
+    }
+    if (normalizedSql.startsWith("SELECT id, actor_id, workspace_id, revoked_at FROM api_keys WHERE key_hash")) {
+      const [keyHash] = params as [string];
+      const key = this.apiKeys.get(keyHash);
+      return { rows: key ? [{ id: key.id, actor_id: key.actorId, workspace_id: key.workspaceId, revoked_at: key.revokedAt }] : [], rowCount: key ? 1 : 0 };
+    }
+    if (normalizedSql.startsWith("UPDATE api_keys SET last_used_at = now() WHERE id")) {
+      const [id] = params as [string];
+      for (const key of this.apiKeys.values()) {
+        if (key.id === id) {
+          key.lastUsedAt = new Date();
+          break;
+        }
+      }
+      return { rows: [], rowCount: 1 };
+    }
+    if (normalizedSql.startsWith("UPDATE api_keys SET revoked_at = now() WHERE id")) {
+      const [id] = params as [string];
+      for (const key of this.apiKeys.values()) {
+        if (key.id === id) {
+          key.revokedAt = new Date();
+          break;
+        }
+      }
+      return { rows: [], rowCount: 1 };
+    }
+    if (normalizedSql.startsWith("SELECT id, actor_id, workspace_id, name, created_at, revoked_at, last_used_at FROM api_keys WHERE workspace_id")) {
+      const [workspaceId] = params as [string];
+      const keys: any[] = [];
+      for (const key of this.apiKeys.values()) {
+        if (key.workspaceId === workspaceId) {
+          keys.push({ id: key.id, actor_id: key.actorId, workspace_id: key.workspaceId, name: key.name, created_at: key.createdAt, revoked_at: key.revokedAt, last_used_at: key.lastUsedAt });
+        }
+      }
+      keys.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      return { rows: keys, rowCount: keys.length };
+    }
+    return { rows: [], rowCount: 0 };
+  }
 
   async insertActionEvent(event: InsertActionEvent): Promise<{ id: string }> {
     const id = `event-${this.events.length + 1}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -396,4 +465,4 @@ registry.register(deleteCustomerAction);
 
 export const defaultWorkspaceId = "default-workspace";
 
-export { resolveActorFromRequest, type ApiKeyMapping };
+export { resolveActorFromRequest };

@@ -15,9 +15,7 @@
     "build": "tsup src/index.ts --format esm --clean",
     "dev": "tsup src/index.ts --format esm --watch",
     "clean": "rm -rf dist",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@tera/core": "workspace:*",

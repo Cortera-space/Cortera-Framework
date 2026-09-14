@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { DbClient, Actor } from "@tera/core";
-import { resolveActorFromRequest, type ApiKeyMapping } from "@tera/adapter-next";
 
 export interface ObservabilityRouteOptions {
   dbClient: DbClient;
