@@ -15,8 +15,67 @@ function makeMockDbClient(): DbClient {
   const events: InsertActionEvent[] = [];
   const idMap = new Map<string, InsertActionEvent>();
   const actorStates = new Map<string, { actorId: string; workspaceId: string; status: string; containedAt: Date | null; containedReason: string | null; reviewedBy: string | null; reviewedAt: Date | null }>();
+  const apiKeys = new Map<string, { id: string; keyHash: string; actorId: string; workspaceId: string; name: string; createdAt: Date; revokedAt: Date | null; lastUsedAt: Date | null }>();
+
+  // Pre-populate test API key
+  const testKey = "test-key";
+  const testKeyHash = require("crypto").createHash("sha256").update(testKey).digest("hex");
+  apiKeys.set(testKeyHash, { id: "key-1", keyHash: testKeyHash, actorId: "test-agent", workspaceId: "ws-1", name: "Test Key", createdAt: new Date(), revokedAt: null, lastUsedAt: null });
 
   return {
+    async query(sql: string, params?: unknown[]): Promise<{ rows: any[]; rowCount: number }> {
+      // Normalize SQL for matching (remove extra whitespace and newlines)
+      const normalizedSql = sql.replace(/\s+/g, " ").trim();
+
+      if (normalizedSql.startsWith("INSERT INTO api_keys")) {
+        const [, keyHash, actorId, workspaceId, name] = params as [string, string, string, string, string];
+        const id = `key-${apiKeys.size + 1}-${Date.now()}`;
+        apiKeys.set(keyHash, { id, keyHash, actorId, workspaceId, name, createdAt: new Date(), revokedAt: null, lastUsedAt: null });
+        return { rows: [{ id }], rowCount: 1 };
+      }
+      if (normalizedSql.startsWith("SELECT id FROM api_keys WHERE key_hash")) {
+        const [keyHash] = params as [string];
+        const key = apiKeys.get(keyHash);
+        return { rows: key ? [{ id: key.id }] : [], rowCount: key ? 1 : 0 };
+      }
+      if (normalizedSql.startsWith("SELECT id, actor_id, workspace_id, revoked_at FROM api_keys WHERE key_hash")) {
+        const [keyHash] = params as [string];
+        const key = apiKeys.get(keyHash);
+        return { rows: key ? [{ id: key.id, actor_id: key.actorId, workspace_id: key.workspaceId, revoked_at: key.revokedAt }] : [], rowCount: key ? 1 : 0 };
+      }
+      if (normalizedSql.startsWith("UPDATE api_keys SET last_used_at = now() WHERE id")) {
+        const [id] = params as [string];
+        for (const key of apiKeys.values()) {
+          if (key.id === id) {
+            key.lastUsedAt = new Date();
+            break;
+          }
+        }
+        return { rows: [], rowCount: 1 };
+      }
+      if (normalizedSql.startsWith("UPDATE api_keys SET revoked_at = now() WHERE id")) {
+        const [id] = params as [string];
+        for (const key of apiKeys.values()) {
+          if (key.id === id) {
+            key.revokedAt = new Date();
+            break;
+          }
+        }
+        return { rows: [], rowCount: 1 };
+      }
+      if (normalizedSql.startsWith("SELECT id, actor_id, workspace_id, name, created_at, revoked_at, last_used_at FROM api_keys WHERE workspace_id")) {
+        const [workspaceId] = params as [string];
+        const keys: any[] = [];
+        for (const key of apiKeys.values()) {
+          if (key.workspaceId === workspaceId) {
+            keys.push({ id: key.id, actor_id: key.actorId, workspace_id: key.workspaceId, name: key.name, created_at: key.createdAt, revoked_at: key.revokedAt, last_used_at: key.lastUsedAt });
+          }
+        }
+        keys.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        return { rows: keys, rowCount: keys.length };
+      }
+      return { rows: [], rowCount: 0 };
+    },
     async insertActionEvent(event: InsertActionEvent): Promise<{ id: string }> {
       const id = `event-${events.length + 1}`;
       const stored = { ...event, _id: id } as InsertActionEvent & { _id: string };
@@ -84,18 +143,16 @@ function makeMockDbClient(): DbClient {
 function createTestServer(options?: Partial<Parameters<typeof createMcpActionServer>[0]>) {
   const registry = new ActionRegistry();
   const dbClient = makeMockDbClient();
-  const apiKeyMapping = { "test-key": { actorId: "test-agent", actorType: "agent" as const } };
 
   const server = createMcpActionServer({
     registry,
     dbClient,
     permissionEngine: { check: async () => "allow" as const },
-    apiKeyMapping,
     defaultWorkspaceId: "ws-1",
     ...options,
   });
 
-  return { registry, dbClient, server, apiKeyMapping };
+  return { registry, dbClient, server };
 }
 
 async function mcpRoundTrip(

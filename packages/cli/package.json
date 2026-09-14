@@ -1,31 +1,28 @@
 {
-  "name": "@tera/mcp",
+  "name": "@tera/cli",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
-  "exports": {
-    ".": {
-      "import": "./dist/index.js"
-    }
+  "bin": {
+    "tera": "./dist/index.js"
   },
   "scripts": {
     "build": "tsup src/index.ts --format esm --clean",
     "dev": "tsup src/index.ts --format esm --watch",
     "clean": "rm -rf dist",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@modelcontextprotocol/server": "^2.0.0",
     "@tera/auth": "workspace:*",
-    "@tera/core": "workspace:*",
-    "zod": "^3.22.0",
-    "zod-to-json-schema": "^3.21.4"
+    "@tera/db": "workspace:*",
+    "commander": "^11.0.0",
+    "pg": "^8.11.0"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
-    "vitest": "^1.0.0"
+    "@types/pg": "^8.10.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.3.0"
   }
 }

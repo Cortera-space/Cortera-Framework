@@ -1,26 +1,24 @@
 import type { Actor } from "@tera/core";
+import type { DbClient } from "@tera/core";
 import type { NextRequest } from "next/server";
-
-export interface ApiKeyMapping {
-  [apiKey: string]: { actorId: string; actorType: Actor["actorType"] };
-}
+import { validateApiKey } from "@tera/auth";
 
 export interface ResolveActorOptions {
-  apiKeyMapping: ApiKeyMapping;
+  dbClient: DbClient;
 }
 
 export async function resolveActorFromRequest(
   request: NextRequest,
-  _options: ResolveActorOptions
+  options: ResolveActorOptions
 ): Promise<Actor | null> {
   const apiKey = request.headers.get("x-tera-api-key");
 
   if (apiKey) {
-    const mapping = _options.apiKeyMapping[apiKey];
-    if (mapping) {
+    const validation = await validateApiKey(options.dbClient, apiKey);
+    if (validation) {
       return {
-        actorId: mapping.actorId,
-        actorType: mapping.actorType,
+        actorId: validation.actorId,
+        actorType: "agent",
       };
     }
     return null;

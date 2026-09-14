@@ -11,7 +11,6 @@ import {
   type ActorState,
   type InsertActorState,
   type ListEventsOptions,
-  type ListEventsFilters,
   type PaginatedResult,
   type ActionEvent,
   type ActionEventWithChain,
@@ -19,7 +18,7 @@ import {
   type PendingApprovalWithEvent,
   type ListPendingApprovalsOptions,
 } from "@tera/core";
-import { resolveActorFromRequest, type ApiKeyMapping } from "@tera/adapter-next";
+import { resolveActorFromRequest } from "@tera/adapter-next";
 
 export const registry = new ActionRegistry();
 
@@ -266,7 +265,7 @@ class InMemoryDbClient implements DbClient {
 
   async listContainedActors(workspaceId: string): Promise<ContainedActor[]> {
     const contained: ContainedActor[] = [];
-    for (const [key, state] of this.actorStates) {
+    for (const [, state] of this.actorStates) {
       if (state.workspaceId === workspaceId && (state.status === "contained" || state.status === "revoked")) {
         contained.push({
           actorId: state.actorId,

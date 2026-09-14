@@ -13,12 +13,12 @@ import {
   ActionPendingApprovalError,
 } from "@tera/core";
 import { zodToJsonSchema } from "zod-to-json-schema";
+import { validateApiKey } from "@tera/auth";
 
 export interface McpActionServerOptions {
   registry: ActionRegistry;
   dbClient: DbClient;
   permissionEngine: PermissionEngine;
-  apiKeyMapping: Record<string, { actorId: string; actorType: Actor["actorType"] }>;
   defaultWorkspaceId: string;
 }
 
@@ -34,7 +34,7 @@ function toStandardSchema(zodSchema: any) {
     $refStrategy: "none",
   }) as Record<string, unknown>;
 
-  let inputSchema = { ...jsonSchema, $schema: "http://json-schema.org/draft-07/schema#" };
+  let inputSchema: Record<string, unknown> = { ...jsonSchema, $schema: "http://json-schema.org/draft-07/schema#" };
 
   if (inputSchema.$ref && typeof inputSchema.$ref === "string") {
     const refPath = inputSchema.$ref;
@@ -51,7 +51,7 @@ function toStandardSchema(zodSchema: any) {
 }
 
 export function createMcpActionServer(options: McpActionServerOptions): McpActionServer {
-  const { registry, dbClient, permissionEngine, apiKeyMapping, defaultWorkspaceId } = options;
+  const { registry, dbClient, permissionEngine, defaultWorkspaceId } = options;
 
   const factory = async (ctx: McpRequestContext) => {
     const server = new McpServer({
@@ -72,11 +72,19 @@ export function createMcpActionServer(options: McpActionServerOptions): McpActio
             ctx.authInfo?.extra?.apiKey;
 
           let actor: Actor;
-          if (typeof apiKey === "string" && apiKeyMapping[apiKey]) {
-            actor = {
-              actorId: apiKeyMapping[apiKey].actorId,
-              actorType: apiKeyMapping[apiKey].actorType,
-            };
+          if (typeof apiKey === "string") {
+            const validation = await validateApiKey(dbClient, apiKey);
+            if (validation) {
+              actor = {
+                actorId: validation.actorId,
+                actorType: "agent",
+              };
+            } else {
+              actor = {
+                actorId: "mcp-client",
+                actorType: "agent",
+              };
+            }
           } else {
             actor = {
               actorId: "mcp-client",
