@@ -14,4 +14,8 @@ export {
   reviewContainedActor,
   getActorState,
 } from "./containment";
+export {
+  cancelDelayedAction,
+  processPendingDelayedActions,
+} from "./delayed-actions";
 export { InMemoryDbClient } from "./test-utils";
