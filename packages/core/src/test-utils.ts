@@ -14,12 +14,16 @@ import type {
   ContainedActor,
   PendingApprovalWithEvent,
   ListPendingApprovalsOptions,
+  InsertPendingDelayedAction,
+  PendingDelayedAction,
+  ListPendingDelayedActionsOptions,
 } from "./types";
 
 export class InMemoryDbClient implements DbClient {
   public events: Array<InsertActionEvent & { id: string }> = [];
   public actorStates = new Map<string, ActorState>();
   private approvals: Array<ActionApproval> = [];
+  public pendingDelayedActions: Array<PendingDelayedAction & { id: string }> = [];
 
   async insertActionEvent(event: InsertActionEvent): Promise<{ id: string }> {
     const id = `event-${this.events.length + 1}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -88,6 +92,74 @@ export class InMemoryDbClient implements DbClient {
       reviewedBy: state.reviewedBy,
       reviewedAt: state.reviewedAt,
     });
+  }
+
+  async insertPendingDelayedAction(action: InsertPendingDelayedAction): Promise<{ id: string }> {
+    const id = `pending-${this.pendingDelayedActions.length + 1}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const record: PendingDelayedAction & { id: string } = {
+      id,
+      actionEventId: action.actionEventId,
+      actionName: action.actionName,
+      input: action.input,
+      actorId: action.actorId,
+      workspaceId: action.workspaceId,
+      scheduledRunAt: action.scheduledRunAt,
+      status: action.status ?? "pending",
+      createdAt: new Date(),
+    };
+    this.pendingDelayedActions.push(record);
+    return { id };
+  }
+
+  async updatePendingDelayedAction(
+    id: string,
+    action: Partial<InsertPendingDelayedAction>
+  ): Promise<void> {
+    const existing = this.pendingDelayedActions.find((a) => a.id === id);
+    if (existing) {
+      Object.assign(existing, action);
+    }
+  }
+
+  async findPendingDelayedActionById(id: string): Promise<PendingDelayedAction | null> {
+    const record = this.pendingDelayedActions.find((a) => a.id === id);
+    if (!record) return null;
+    return record;
+  }
+
+  async findPendingDelayedActions(
+    workspaceId: string,
+    options?: ListPendingDelayedActionsOptions
+  ): Promise<PaginatedResult<PendingDelayedAction>> {
+    const { filters, limit = 50, cursor } = options ?? {};
+    let filtered = this.pendingDelayedActions.filter((a) => a.workspaceId === workspaceId);
+
+    if (filters?.actionName) {
+      filtered = filtered.filter((a) => a.actionName === filters.actionName);
+    }
+    if (filters?.status) {
+      filtered = filtered.filter((a) => a.status === filters.status);
+    }
+    if (cursor) {
+      const cursorDate = new Date(cursor);
+      filtered = filtered.filter((a) => a.createdAt < cursorDate);
+    }
+
+    filtered.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+    const items = filtered.slice(0, limit);
+    const nextCursor = filtered.length > limit ? filtered[limit - 1].createdAt.toISOString() : null;
+    return { items, nextCursor };
+  }
+
+  async findPendingDelayedActionsDue(workspaceId: string): Promise<PendingDelayedAction[]> {
+    const now = new Date();
+    return this.pendingDelayedActions.filter(
+      (a) =>
+        a.workspaceId === workspaceId &&
+        a.status === "pending" &&
+        a.scheduledRunAt <= now
+    );
   }
 
   async listEvents(

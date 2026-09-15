@@ -15,6 +15,9 @@ import type {
   ContainedActor,
   PendingApprovalWithEvent,
   ListPendingApprovalsOptions,
+  InsertPendingDelayedAction,
+  PendingDelayedAction,
+  ListPendingDelayedActionsOptions,
 } from "@tera/core";
 
 export type PostgresDbClientOptions = {
@@ -535,6 +538,169 @@ export class PostgresDbClient implements DbClient {
         },
       };
     });
+  }
+
+  async insertPendingDelayedAction(action: InsertPendingDelayedAction): Promise<{ id: string }> {
+    const { rows } = await this.pool.query(
+      `INSERT INTO pending_delayed_actions (
+        action_event_id, action_name, input, actor_id, workspace_id, scheduled_run_at, status
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+      RETURNING id`,
+      [
+        action.actionEventId,
+        action.actionName,
+        JSON.stringify(action.input),
+        action.actorId,
+        action.workspaceId,
+        action.scheduledRunAt,
+        action.status ?? "pending",
+      ]
+    );
+    return { id: rows[0].id };
+  }
+
+  async updatePendingDelayedAction(
+    id: string,
+    action: Partial<InsertPendingDelayedAction>
+  ): Promise<void> {
+    const setClauses: string[] = [];
+    const values: unknown[] = [];
+    let idx = 1;
+
+    if (action.actionEventId !== undefined) {
+      setClauses.push(`action_event_id = $${idx++}`);
+      values.push(action.actionEventId);
+    }
+    if (action.actionName !== undefined) {
+      setClauses.push(`action_name = $${idx++}`);
+      values.push(action.actionName);
+    }
+    if (action.input !== undefined) {
+      setClauses.push(`input = $${idx++}`);
+      values.push(JSON.stringify(action.input));
+    }
+    if (action.actorId !== undefined) {
+      setClauses.push(`actor_id = $${idx++}`);
+      values.push(action.actorId);
+    }
+    if (action.workspaceId !== undefined) {
+      setClauses.push(`workspace_id = $${idx++}`);
+      values.push(action.workspaceId);
+    }
+    if (action.scheduledRunAt !== undefined) {
+      setClauses.push(`scheduled_run_at = $${idx++}`);
+      values.push(action.scheduledRunAt);
+    }
+    if (action.status !== undefined) {
+      setClauses.push(`status = $${idx++}`);
+      values.push(action.status);
+    }
+
+    if (setClauses.length === 0) {
+      return;
+    }
+
+    values.push(id);
+    const sql = `UPDATE pending_delayed_actions SET ${setClauses.join(", ")} WHERE id = $${idx}`;
+    await this.pool.query(sql, values);
+  }
+
+  async findPendingDelayedActionById(id: string): Promise<PendingDelayedAction | null> {
+    const { rows } = await this.pool.query(
+      `SELECT id, action_event_id, action_name, input, actor_id, workspace_id,
+              scheduled_run_at, status, created_at
+       FROM pending_delayed_actions
+       WHERE id = $1`,
+      [id]
+    );
+    if (rows.length === 0) {
+      return null;
+    }
+    const row = rows[0];
+    return {
+      id: row.id,
+      actionEventId: row.action_event_id,
+      actionName: row.action_name,
+      input: JSON.parse(row.input),
+      actorId: row.actor_id,
+      workspaceId: row.workspace_id,
+      scheduledRunAt: new Date(row.scheduled_run_at),
+      status: row.status as PendingDelayedAction["status"],
+      createdAt: new Date(row.created_at),
+    };
+  }
+
+  async findPendingDelayedActions(
+    workspaceId: string,
+    options?: ListPendingDelayedActionsOptions
+  ): Promise<PaginatedResult<PendingDelayedAction>> {
+    const { filters, limit = 50, cursor } = options ?? {};
+    const conditions: string[] = ["workspace_id = $1"];
+    const values: unknown[] = [workspaceId];
+    let idx = 2;
+
+    if (filters?.actionName) {
+      conditions.push(`action_name = $${idx++}`);
+      values.push(filters.actionName);
+    }
+    if (filters?.status) {
+      conditions.push(`status = $${idx++}`);
+      values.push(filters.status);
+    }
+    if (cursor) {
+      conditions.push(`created_at < $${idx++}`);
+      values.push(new Date(cursor));
+    }
+
+    const whereClause = conditions.join(" AND ");
+    const sql = `
+      SELECT id, action_event_id, action_name, input, actor_id, workspace_id,
+             scheduled_run_at, status, created_at
+      FROM pending_delayed_actions
+      WHERE ${whereClause}
+      ORDER BY created_at DESC
+      LIMIT $${idx}
+    `;
+    values.push(limit + 1);
+
+    const { rows } = await this.pool.query(sql, values);
+    const items = rows.slice(0, limit).map((row) => ({
+      id: row.id,
+      actionEventId: row.action_event_id,
+      actionName: row.action_name,
+      input: JSON.parse(row.input),
+      actorId: row.actor_id,
+      workspaceId: row.workspace_id,
+      scheduledRunAt: new Date(row.scheduled_run_at),
+      status: row.status as PendingDelayedAction["status"],
+      createdAt: new Date(row.created_at),
+    }));
+
+    const nextCursor = rows.length > limit ? rows[limit - 1].created_at.toISOString() : null;
+    return { items, nextCursor };
+  }
+
+  async findPendingDelayedActionsDue(workspaceId: string): Promise<PendingDelayedAction[]> {
+    const { rows } = await this.pool.query(
+      `SELECT id, action_event_id, action_name, input, actor_id, workspace_id,
+              scheduled_run_at, status, created_at
+       FROM pending_delayed_actions
+       WHERE workspace_id = $1
+         AND status = 'pending'
+         AND scheduled_run_at <= now()`,
+      [workspaceId]
+    );
+    return rows.map((row) => ({
+      id: row.id,
+      actionEventId: row.action_event_id,
+      actionName: row.action_name,
+      input: JSON.parse(row.input),
+      actorId: row.actor_id,
+      workspaceId: row.workspace_id,
+      scheduledRunAt: new Date(row.scheduled_run_at),
+      status: row.status as PendingDelayedAction["status"],
+      createdAt: new Date(row.created_at),
+    }));
   }
 
   async close(): Promise<void> {
