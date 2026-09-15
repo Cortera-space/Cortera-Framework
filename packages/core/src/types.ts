@@ -90,6 +90,16 @@ export interface ActionEventLookup {
 
 export type PermissionResult = "allow" | "deny" | "approval_required";
 
+export type RiskTier = "instant" | "delayed" | "irreversible";
+
+export type RiskMode = "guarded" | "autonomous";
+
+export type DelayedExecutionResult = {
+  status: "delayed";
+  pendingId: string;
+  scheduledRunAt: Date;
+};
+
 export type PermissionRule = {
   actorId?: string;
   actorType?: Actor["actorType"];
@@ -143,6 +153,8 @@ export interface ActionConfig<TInput extends z.ZodTypeAny> {
   handler: (input: z.infer<TInput>, ctx: ActionContext) => Promise<unknown>;
   approvalTtlMs?: number;
   blastRadius?: string[];
+  riskTier?: RiskTier;
+  delayWindowMs?: number;
 }
 
 export interface ActionResult<T = unknown> {
@@ -156,12 +168,16 @@ export interface DefinedAction<TInput extends z.ZodTypeAny> {
   permission: string;
   input: TInput;
   blastRadius?: string[];
+  riskTier?: RiskTier;
+  delayWindowMs?: number;
+  handler: (input: z.infer<TInput>, ctx: ActionContext) => Promise<unknown>;
   execute(
     rawInput: unknown,
     ctx: ActionContext,
     dbClient?: DbClient,
-    permissionEngine?: PermissionEngine
-  ): Promise<ActionResult<unknown>>;
+    permissionEngine?: PermissionEngine,
+    riskMode?: RiskMode
+  ): Promise<ActionResult<unknown> | DelayedExecutionResult>;
 }
 
 export interface ActionEvent<TInput = unknown, TOutput = unknown> {
@@ -225,6 +241,41 @@ export interface PendingApprovalWithEvent {
   };
 }
 
+export type DelayedActionStatus = "pending" | "canceled" | "executed";
+
+export interface PendingDelayedAction {
+  id: string;
+  actionEventId: string;
+  actionName: string;
+  input: unknown;
+  actorId: string;
+  workspaceId: string;
+  scheduledRunAt: Date;
+  status: DelayedActionStatus;
+  createdAt: Date;
+}
+
+export interface InsertPendingDelayedAction {
+  actionEventId: string;
+  actionName: string;
+  input: unknown;
+  actorId: string;
+  workspaceId: string;
+  scheduledRunAt: Date;
+  status?: DelayedActionStatus;
+}
+
+export interface ListPendingDelayedActionsFilters {
+  actionName?: string;
+  status?: DelayedActionStatus;
+}
+
+export interface ListPendingDelayedActionsOptions {
+  filters?: ListPendingDelayedActionsFilters;
+  limit?: number;
+  cursor?: string;
+}
+
 export interface ListPendingApprovalsFilters {
   actionName?: string;
 }
@@ -264,4 +315,9 @@ export interface DbClient {
   getEventWithChain(eventId: string): Promise<ActionEventWithChain | null>;
   listContainedActors(workspaceId: string): Promise<ContainedActor[]>;
   listPendingApprovals(workspaceId: string, options?: ListPendingApprovalsOptions): Promise<PendingApprovalWithEvent[]>;
+  insertPendingDelayedAction(action: InsertPendingDelayedAction): Promise<{ id: string }>;
+  updatePendingDelayedAction(id: string, action: Partial<InsertPendingDelayedAction>): Promise<void>;
+  findPendingDelayedActionById(id: string): Promise<PendingDelayedAction | null>;
+  findPendingDelayedActions(workspaceId: string, options?: ListPendingDelayedActionsOptions): Promise<PaginatedResult<PendingDelayedAction>>;
+  findPendingDelayedActionsDue(workspaceId: string): Promise<PendingDelayedAction[]>;
 }

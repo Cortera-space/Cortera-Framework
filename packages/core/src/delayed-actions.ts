@@ -72,8 +72,10 @@ export async function processPendingDelayedActions(
       continue;
     }
 
+    // Use the original actor for permission/containment checks
+    const originalActor: Actor = { actorType: "human", actorId: pending.actorId };
     const ctx: ActionContext = {
-      actor: { actorType: "system", actorId: pending.actorId },
+      actor: originalActor,
       workspaceId: pending.workspaceId,
       parentEventId: pending.actionEventId,
     };
@@ -84,7 +86,8 @@ export async function processPendingDelayedActions(
       await checkBlastRadius(dbClient, ctx, action);
     } catch (error) {
       if (error instanceof ActionContainmentError) {
-        await handleDelayedFailure(dbClient, pending, "ACTOR_CONTAINED", error.message);
+        // Use the actual error code from the containment error
+        await handleDelayedFailure(dbClient, pending, error.errorCode, error.message);
         continue;
       }
       if (error instanceof ActionPermissionError) {
@@ -94,7 +97,7 @@ export async function processPendingDelayedActions(
       throw error;
     }
 
-    // Check permission again
+    // Check permission again using the original actor
     const permissionResult = permissionEngine
       ? await permissionEngine.check(ctx.actor, action, pending.input, ctx.workspaceId)
       : "allow";

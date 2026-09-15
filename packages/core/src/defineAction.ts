@@ -15,6 +15,37 @@ import type { ActionConfig, DefinedAction, ActionContext, DbClient, PermissionEn
 import { recordEvent, updateEvent } from "./event-log";
 import { checkActorContainment, checkBlastRadius } from "./containment";
 
+async function runSchedulingChecks(
+  dbClient: DbClient | undefined,
+  ctx: ActionContext,
+  action: DefinedAction<any>,
+  permissionEngine: PermissionEngine | undefined
+): Promise<"allow" | "deny" | "approval_required"> {
+  if (dbClient) {
+    try {
+      await checkActorContainment(dbClient, ctx.actor, ctx.workspaceId);
+    } catch (error) {
+      if (error instanceof ActionContainmentError) {
+        throw error;
+      }
+      throw error;
+    }
+    // NOTE: We intentionally SKIP checkBlastRadius here for delayed actions.
+    // Blast radius is re-checked at execution time in the sweep.
+  }
+
+  const permissionResult = permissionEngine
+    ? await permissionEngine.check(
+        ctx.actor,
+        action,
+        undefined,
+        ctx.workspaceId
+      )
+    : "allow";
+
+  return permissionResult;
+}
+
 async function runFullChecks(
   dbClient: DbClient | undefined,
   ctx: ActionContext,
@@ -234,8 +265,8 @@ async function executeDelayed(
     throw new Error(`Delayed execution requires a dbClient: ${config.name}`);
   }
 
-  // Run checks now to validate before scheduling
-  const permissionResult = await runFullChecks(dbClient, ctx, { name: config.name, permission: config.permission, blastRadius: config.blastRadius } as DefinedAction<any>, permissionEngine);
+  // Run scheduling checks (containment + permission, but NOT blast radius)
+  const permissionResult = await runSchedulingChecks(dbClient, ctx, { name: config.name, permission: config.permission, blastRadius: config.blastRadius } as DefinedAction<any>, permissionEngine);
 
   if (permissionResult === "deny") {
     const insertEvent: InsertActionEvent = {
@@ -389,8 +420,8 @@ async function executeIrreversible(
     throw new Error(`Irreversible execution requires a dbClient: ${config.name}`);
   }
 
-  // Run checks now
-  const permissionResult = await runFullChecks(dbClient, ctx, { name: config.name, permission: config.permission, blastRadius: config.blastRadius } as DefinedAction<any>, permissionEngine);
+  // Run scheduling checks (containment + permission, but NOT blast radius)
+  const permissionResult = await runSchedulingChecks(dbClient, ctx, { name: config.name, permission: config.permission, blastRadius: config.blastRadius } as DefinedAction<any>, permissionEngine);
 
   if (permissionResult === "deny") {
     const insertEvent: InsertActionEvent = {
@@ -549,6 +580,7 @@ export function defineAction<TInput extends z.ZodTypeAny>(
     blastRadius: config.blastRadius,
     riskTier: config.riskTier,
     delayWindowMs: config.delayWindowMs,
+    handler: config.handler,
     async execute(
       rawInput: unknown,
       ctx: ActionContext,
