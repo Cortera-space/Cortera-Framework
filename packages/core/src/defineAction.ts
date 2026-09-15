@@ -3,17 +3,28 @@ import {
   ActionValidationError,
   ActionPermissionError,
   ActionPendingApprovalError,
+  ActionPendingIrreversibleConfirmationError,
   ActionContainmentError,
   type InsertActionEvent,
   type InsertActionApproval,
+  type InsertIrreversibleConfirmation,
+  type IrreversibleConfirmation,
+  type DbClient,
+  type ActionContext,
+  type Actor,
+  type DefinedAction,
+  type ActionResult,
+  type PermissionEngine,
+  type RollbackFn,
 } from "./types";
-import type { ActionConfig, DefinedAction } from "./types";
+import type { ActionConfig } from "./types";
 import { recordEvent, updateEvent } from "./event-log";
 import { checkActorContainment, checkBlastRadius } from "./containment";
+import { requestIrreversibleConfirmation } from "./irreversible-confirmation";
 
-export function defineAction<TInput extends z.ZodTypeAny>(
-  config: ActionConfig<TInput>
-): DefinedAction<TInput> {
+export function defineAction<TInput extends z.ZodTypeAny, TOutput = unknown>(
+  config: ActionConfig<TInput, TOutput>
+): DefinedAction<TInput, TOutput> {
   if (!config.description || config.description.trim() === "") {
     throw new Error(`Action "${config.name}" must have a non-empty description`);
   }
@@ -24,12 +35,18 @@ export function defineAction<TInput extends z.ZodTypeAny>(
     );
   }
 
+  const riskTier = config.riskTier ?? "standard";
+  const confirmationTtlMs = config.confirmationTtlMs ?? 15 * 60 * 1000;
+
   return {
     name: config.name,
     description: config.description,
     permission: config.permission,
     input: config.inputSchema,
     blastRadius: config.blastRadius,
+    riskTier,
+    confirmationTtlMs,
+    rollback: config.rollback,
     async execute(rawInput, ctx, dbClient, permissionEngine) {
       const startedAt = new Date();
 
@@ -130,6 +147,50 @@ export function defineAction<TInput extends z.ZodTypeAny>(
           `Action requires approval (id: ${approvalId})`,
           config.permission,
           approvalId
+        );
+      }
+
+      if (riskTier === "irreversible") {
+        if (!dbClient) {
+          throw new Error(`Irreversible action requires dbClient: ${config.name}`);
+        }
+
+        const insertEvent: InsertActionEvent = {
+          actionName: config.name,
+          actorType: ctx.actor.actorType,
+          actorId: ctx.actor.actorId,
+          input: rawInput,
+          output: null,
+          error: null,
+          permissionResult: "pending_confirmation",
+          approvedBy: null,
+          parentEventId: ctx.parentEventId ?? null,
+          startedAt,
+          durationMs: null,
+          workspaceId: ctx.workspaceId,
+          blastRadius: config.blastRadius ?? null,
+        };
+        const { id: actionEventId } = await recordEvent(dbClient, insertEvent);
+
+        const contactResolver = (globalThis as any).__TERA_CONTACT_RESOLVER__;
+        if (!contactResolver) {
+          throw new Error("Workspace contact resolver not configured for irreversible actions");
+        }
+
+        const confirmationResult = await requestIrreversibleConfirmation(
+          actionEventId,
+          this,
+          ctx.actor,
+          rawInput,
+          ctx.workspaceId,
+          dbClient,
+          contactResolver,
+          confirmationTtlMs
+        );
+
+        throw new ActionPendingIrreversibleConfirmationError(
+          `Irreversible action requires confirmation (id: ${confirmationResult.confirmationId})`,
+          confirmationResult.confirmationId
         );
       }
 

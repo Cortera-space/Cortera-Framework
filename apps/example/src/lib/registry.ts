@@ -18,8 +18,12 @@ import {
   type ContainedActor,
   type PendingApprovalWithEvent,
   type ListPendingApprovalsOptions,
+  type WorkspaceContact,
+  type WorkspaceContactResolver,
 } from "@tera/core";
 import { resolveActorFromRequest, type ApiKeyMapping } from "@tera/adapter-next";
+import { deleteWorkspaceAction } from "@/actions/deleteWorkspace";
+import { archiveNoteAction } from "@/actions/archiveNote";
 
 export const registry = new ActionRegistry();
 
@@ -32,6 +36,10 @@ permissionEngine.addRule({ actorType: "human", permissionKey: "notifications.sen
 permissionEngine.addRule({ actorType: "agent", permissionKey: "notifications.send", result: "allow" });
 permissionEngine.addRule({ actorType: "human", permissionKey: "customers.delete", result: "approval_required" });
 permissionEngine.addRule({ actorType: "agent", permissionKey: "customers.delete", result: "approval_required" });
+permissionEngine.addRule({ actorType: "human", permissionKey: "workspaces.delete", result: "allow" });
+permissionEngine.addRule({ actorType: "agent", permissionKey: "workspaces.delete", result: "allow" });
+permissionEngine.addRule({ actorType: "human", permissionKey: "notes.archive", result: "allow" });
+permissionEngine.addRule({ actorType: "agent", permissionKey: "notes.archive", result: "allow" });
 
 class InMemoryDbClient implements DbClient {
   public events: Array<InsertActionEvent & { id: string }> = [];
@@ -393,8 +401,24 @@ registry.register(restrictedNoteAction);
 registry.register(notifyWatchersAction);
 registry.register(deleteAllCustomersAction);
 registry.register(deleteCustomerAction);
+registry.register(deleteWorkspaceAction);
+registry.register(archiveNoteAction);
 
 
 export const defaultWorkspaceId = "default-workspace";
+
+export const workspaceContactResolver: WorkspaceContactResolver = {
+  async getContact(workspaceId: string): Promise<WorkspaceContact | null> {
+    if (workspaceId === defaultWorkspaceId) {
+      return {
+        channel: "email",
+        destination: "admin@example.com",
+      };
+    }
+    return null;
+  },
+};
+
+(globalThis as any).__TERA_CONTACT_RESOLVER__ = workspaceContactResolver;
 
 export { resolveActorFromRequest, type ApiKeyMapping };
