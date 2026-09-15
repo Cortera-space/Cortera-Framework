@@ -14,12 +14,16 @@ import type {
   ContainedActor,
   PendingApprovalWithEvent,
   ListPendingApprovalsOptions,
+  InsertIrreversibleConfirmation,
+  IrreversibleConfirmation,
+  PendingIrreversibleConfirmationWithEvent,
 } from "./types";
 
 export class InMemoryDbClient implements DbClient {
   public events: Array<InsertActionEvent & { id: string }> = [];
   public actorStates = new Map<string, ActorState>();
   private approvals: Array<ActionApproval> = [];
+  private confirmations: Array<IrreversibleConfirmation> = [];
 
   async insertActionEvent(event: InsertActionEvent): Promise<{ id: string }> {
     const id = `event-${this.events.length + 1}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -192,11 +196,9 @@ export class InMemoryDbClient implements DbClient {
     const targetEvent = eventMap.get(eventId);
     if (!targetEvent) return null;
 
-    // Clear the immediate parent link and build full ancestor chain
     targetEvent.ancestors = [];
     this.buildFullAncestorChain(targetEvent, eventMap);
 
-    // Create a serializable version without circular references
     const serializable = this.makeSerializable(targetEvent, new Set());
     return serializable;
   }
@@ -212,7 +214,6 @@ export class InMemoryDbClient implements DbClient {
 
   private makeSerializable(event: ActionEventWithChain, visited: Set<string>): ActionEventWithChain {
     if (visited.has(event.eventId)) {
-      // Return a minimal version to break circular reference
       return {
         eventId: event.eventId,
         actionName: event.actionName,
@@ -292,6 +293,51 @@ export class InMemoryDbClient implements DbClient {
           input: event?.input ?? approval.input,
           requestedAt: event?.startedAt ?? approval.requestedAt,
           expiresAt: approval.expiresAt,
+        },
+      };
+    });
+  }
+
+  async insertIrreversibleConfirmation(confirmation: InsertIrreversibleConfirmation): Promise<{ id: string }> {
+    const id = `confirmation-${this.confirmations.length + 1}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const record: IrreversibleConfirmation = {
+      ...confirmation,
+      id,
+      createdAt: new Date(),
+    };
+    this.confirmations.push(record);
+    return { id };
+  }
+
+  async findIrreversibleConfirmationByToken(token: string): Promise<IrreversibleConfirmation | null> {
+    return this.confirmations.find((c) => c.confirmationToken === token) ?? null;
+  }
+
+  async updateIrreversibleConfirmation(id: string, confirmation: Partial<InsertIrreversibleConfirmation>): Promise<void> {
+    const existing = this.confirmations.find((c) => c.id === id);
+    if (existing) {
+      Object.assign(existing, confirmation);
+    }
+  }
+
+  async findPendingIrreversibleConfirmations(): Promise<IrreversibleConfirmation[]> {
+    const now = new Date();
+    return this.confirmations.filter((c) => c.status === "pending" && c.expiresAt >= now);
+  }
+
+  async listPendingIrreversibleConfirmations(workspaceId: string): Promise<PendingIrreversibleConfirmationWithEvent[]> {
+    const pending = this.confirmations.filter((c) => c.status === "pending" && c.workspaceId === workspaceId);
+    return pending.map((confirmation) => {
+      const event = this.events.find((e) => e.id === confirmation.actionEventId);
+      return {
+        confirmation: { ...confirmation },
+        event: {
+          actionName: event?.actionName ?? confirmation.actionName,
+          actorType: event?.actorType ?? "agent",
+          actorId: event?.actorId ?? confirmation.actorId,
+          input: event?.input ?? confirmation.input,
+          requestedAt: event?.startedAt ?? confirmation.createdAt,
+          expiresAt: confirmation.expiresAt,
         },
       };
     });
