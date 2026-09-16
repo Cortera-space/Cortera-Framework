@@ -176,6 +176,7 @@ export interface DefinedAction<TInput extends z.ZodTypeAny, TOutput = unknown> {
   riskTier?: RiskTier;
   confirmationTtlMs?: number;
   rollback?: RollbackFn<TOutput>;
+  handler: (input: z.infer<TInput>, ctx: ActionContext) => Promise<TOutput>;
   execute(
     rawInput: unknown,
     ctx: ActionContext,
@@ -333,5 +334,6 @@ export interface DbClient {
   findIrreversibleConfirmationByToken(token: string): Promise<IrreversibleConfirmation | null>;
   updateIrreversibleConfirmation(id: string, confirmation: Partial<InsertIrreversibleConfirmation>): Promise<void>;
   findPendingIrreversibleConfirmations(): Promise<IrreversibleConfirmation[]>;
+  findAllPendingIrreversibleConfirmations(): Promise<IrreversibleConfirmation[]>;
   listPendingIrreversibleConfirmations(workspaceId: string): Promise<PendingIrreversibleConfirmationWithEvent[]>;
 }

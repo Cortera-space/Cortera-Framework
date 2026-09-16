@@ -9,6 +9,7 @@ import {
   confirmIrreversibleConfirmation,
   rejectIrreversibleConfirmation,
   expirePendingIrreversibleConfirmations,
+  ActionPendingIrreversibleConfirmationError,
   type ActionContext,
   type Actor,
   type WorkspaceContactResolver,
@@ -56,11 +57,30 @@ describe("irreversible confirmation", () => {
     });
 
     registry.register(action);
+    (globalThis as any).__TERA_CONTACT_RESOLVER__ = mockContactResolver;
   });
 
   it("requestIrreversibleConfirmation creates confirmation and returns awaiting_confirmation", async () => {
+    // First create an event as the action would
+    const insertEvent = {
+      actionName: "deleteWorkspace",
+      actorType: "human" as const,
+      actorId: "user-1",
+      input: { workspaceId: "ws-1", confirmation: "DELETE" },
+      output: null,
+      error: null,
+      permissionResult: "pending_confirmation" as const,
+      approvedBy: null,
+      parentEventId: null,
+      startedAt: new Date(),
+      durationMs: null,
+      workspaceId: "ws-1",
+      blastRadius: null,
+    };
+    const { id: actionEventId } = await dbClient.insertActionEvent(insertEvent as any);
+
     const result = await requestIrreversibleConfirmation(
-      "event-123",
+      actionEventId,
       action,
       actor,
       { workspaceId: "ws-1", confirmation: "DELETE" },
@@ -89,8 +109,26 @@ describe("irreversible confirmation", () => {
       }),
     };
 
+    // Create event first
+    const insertEvent = {
+      actionName: "deleteWorkspace",
+      actorType: "human" as const,
+      actorId: "user-1",
+      input: { workspaceId: "ws-1", confirmation: "DELETE", destination: "attacker@evil.com" },
+      output: null,
+      error: null,
+      permissionResult: "pending_confirmation" as const,
+      approvedBy: null,
+      parentEventId: null,
+      startedAt: new Date(),
+      durationMs: null,
+      workspaceId: "ws-1",
+      blastRadius: null,
+    };
+    const { id: actionEventId } = await dbClient.insertActionEvent(insertEvent as any);
+
     await requestIrreversibleConfirmation(
-      "event-123",
+      actionEventId,
       action,
       actor,
       { workspaceId: "ws-1", confirmation: "DELETE", destination: "attacker@evil.com" },
@@ -101,19 +139,23 @@ describe("irreversible confirmation", () => {
 
     const confirmations = await dbClient.findPendingIrreversibleConfirmations();
     expect(confirmations[0].sentTo).not.toContain("attacker@evil.com");
-    expect(confirmations[0].sentTo).toContain("admin@example.com");
+    expect(confirmations[0].sentTo).toContain("ad***@example.com");
   });
 
   it("confirmIrreversibleConfirmation executes handler after confirmation", async () => {
-    const requestResult = await requestIrreversibleConfirmation(
-      "event-123",
-      action,
-      actor,
-      { workspaceId: "ws-1", confirmation: "DELETE" },
-      "ws-1",
-      dbClient,
-      mockContactResolver
-    );
+    // Execute the action to create event and confirmation
+    let actionEventId: string;
+    try {
+      await action.execute(
+        { workspaceId: "ws-1", confirmation: "DELETE" },
+        makeCtx(),
+        dbClient,
+        engine
+      );
+    } catch (error) {
+      expect(error).toBeInstanceOf(ActionPendingIrreversibleConfirmationError);
+      actionEventId = (error as ActionPendingIrreversibleConfirmationError).confirmationId;
+    }
 
     const confirmations = await dbClient.findPendingIrreversibleConfirmations();
     const token = confirmations[0].confirmationToken;
@@ -130,28 +172,47 @@ describe("irreversible confirmation", () => {
     const denyEngine = new InMemoryPermissionEngine();
     denyEngine.addRule({ permissionKey: "workspaces.delete", result: "deny" });
 
-    const requestResult = await requestIrreversibleConfirmation(
-      "event-123",
-      action,
-      actor,
-      { workspaceId: "ws-1", confirmation: "DELETE" },
-      "ws-1",
-      dbClient,
-      mockContactResolver
-    );
+    // Execute the action to create event and confirmation
+    let actionEventId: string;
+    try {
+      await action.execute(
+        { workspaceId: "ws-1", confirmation: "DELETE" },
+        makeCtx(),
+        dbClient,
+        engine
+      );
+    } catch (error) {
+      expect(error).toBeInstanceOf(ActionPendingIrreversibleConfirmationError);
+      actionEventId = (error as ActionPendingIrreversibleConfirmationError).confirmationId;
+    }
 
     const confirmations = await dbClient.findPendingIrreversibleConfirmations();
     const token = confirmations[0].confirmationToken;
 
     await expect(
       confirmIrreversibleConfirmation(token, dbClient, registry, denyEngine)
-    ).rejects.toThrow("permission_denied_at_confirmation");
+    ).rejects.toThrow("actor lacks permission at confirmation time");
 
     const updatedConfirmation = await dbClient.findIrreversibleConfirmationByToken(token);
     expect(updatedConfirmation?.status).toBe("rejected");
   });
 
   it("confirmIrreversibleConfirmation re-checks containment at confirmation time", async () => {
+    // Execute the action to create event and confirmation
+    let actionEventId: string;
+    try {
+      await action.execute(
+        { workspaceId: "ws-1", confirmation: "DELETE" },
+        makeCtx(),
+        dbClient,
+        engine
+      );
+    } catch (error) {
+      expect(error).toBeInstanceOf(ActionPendingIrreversibleConfirmationError);
+      actionEventId = (error as ActionPendingIrreversibleConfirmationError).confirmationId;
+    }
+
+    // Now contain the actor
     await dbClient.upsertActorState({
       actorId: "user-1",
       workspaceId: "ws-1",
@@ -162,34 +223,31 @@ describe("irreversible confirmation", () => {
       reviewedAt: null,
     });
 
-    const requestResult = await requestIrreversibleConfirmation(
-      "event-123",
-      action,
-      actor,
-      { workspaceId: "ws-1", confirmation: "DELETE" },
-      "ws-1",
-      dbClient,
-      mockContactResolver
-    );
-
     const confirmations = await dbClient.findPendingIrreversibleConfirmations();
     const token = confirmations[0].confirmationToken;
 
     await expect(
       confirmIrreversibleConfirmation(token, dbClient, registry, engine)
-    ).rejects.toThrow("ACTOR_CONTAINED");
+    ).rejects.toThrow("actor is contained");
+
+    const updatedConfirmation = await dbClient.findIrreversibleConfirmationByToken(token);
+    expect(updatedConfirmation?.status).toBe("rejected");
   });
 
   it("rejectIrreversibleConfirmation prevents execution", async () => {
-    const requestResult = await requestIrreversibleConfirmation(
-      "event-123",
-      action,
-      actor,
-      { workspaceId: "ws-1", confirmation: "DELETE" },
-      "ws-1",
-      dbClient,
-      mockContactResolver
-    );
+    // Execute the action to create event and confirmation
+    let actionEventId: string;
+    try {
+      await action.execute(
+        { workspaceId: "ws-1", confirmation: "DELETE" },
+        makeCtx(),
+        dbClient,
+        engine
+      );
+    } catch (error) {
+      expect(error).toBeInstanceOf(ActionPendingIrreversibleConfirmationError);
+      actionEventId = (error as ActionPendingIrreversibleConfirmationError).confirmationId;
+    }
 
     const confirmations = await dbClient.findPendingIrreversibleConfirmations();
     const token = confirmations[0].confirmationToken;
@@ -212,23 +270,32 @@ describe("irreversible confirmation", () => {
       }),
     };
 
-    await requestIrreversibleConfirmation(
-      "event-123",
-      action,
-      actor,
-      { workspaceId: "ws-1", confirmation: "DELETE" },
-      "ws-1",
-      dbClient,
-      shortTtlResolver,
-      1
-    );
+    // Execute the action to create event and confirmation
+    let actionEventId: string;
+    try {
+      await action.execute(
+        { workspaceId: "ws-1", confirmation: "DELETE" },
+        makeCtx(),
+        dbClient,
+        engine
+      );
+    } catch (error) {
+      expect(error).toBeInstanceOf(ActionPendingIrreversibleConfirmationError);
+      actionEventId = (error as ActionPendingIrreversibleConfirmationError).confirmationId;
+    }
 
-    await new Promise((resolve) => setTimeout(resolve, 10));
+    // Wait for expiry (the TTL in the action is 15 min default, but we can manually expire)
+    // Manually set expiresAt to past
+    const confirmations = await dbClient.findPendingIrreversibleConfirmations();
+    const confirmation = confirmations[0];
+    await dbClient.updateIrreversibleConfirmation(confirmation.id, {
+      expiresAt: new Date(Date.now() - 1000),
+    });
 
     await expirePendingIrreversibleConfirmations(dbClient);
 
-    const confirmations = await dbClient.findPendingIrreversibleConfirmations();
-    expect(confirmations).toHaveLength(0);
+    const pendingConfirmations = await dbClient.findPendingIrreversibleConfirmations();
+    expect(pendingConfirmations).toHaveLength(0);
 
     const allConfirmations = await dbClient.listPendingIrreversibleConfirmations("ws-1");
     expect(allConfirmations).toHaveLength(0);

@@ -1,20 +1,17 @@
 import { randomBytes } from "crypto";
+import {
+  ActionPermissionError,
+  ActionContainmentError,
+} from "./types";
 import type {
   DbClient,
   ActionContext,
   Actor,
-  IrreversibleConfirmation,
   InsertIrreversibleConfirmation,
   DefinedAction,
   ActionResult,
-  ActionPendingIrreversibleConfirmationError,
-  ActionPermissionError,
-  ActionContainmentError,
-  ActionValidationError,
   PermissionEngine,
-  RollbackFn,
 } from "./types";
-import { recordEvent, updateEvent } from "./event-log";
 import { checkActorContainment, checkBlastRadius } from "./containment";
 
 export interface WorkspaceContact {
@@ -210,7 +207,19 @@ export async function confirmIrreversibleConfirmation(
   }
 
   if (dbClient) {
-    await checkActorContainment(dbClient, actor, confirmation.workspaceId);
+    try {
+      await checkActorContainment(dbClient, actor, confirmation.workspaceId);
+    } catch (error) {
+      if (error instanceof ActionContainmentError) {
+        await dbClient.updateIrreversibleConfirmation(confirmation.id, { status: "rejected" });
+        await dbClient.updateActionEvent(confirmation.actionEventId, {
+          permissionResult: "deny",
+          error: "actor_contained_at_confirmation",
+        });
+        throw error;
+      }
+      throw error;
+    }
     await checkBlastRadius(dbClient, ctx, action);
   }
 
@@ -226,16 +235,17 @@ export async function confirmIrreversibleConfirmation(
 
   const startedAt = new Date();
   try {
-    const handlerResult = await action.execute(confirmation.input, ctx, dbClient, permissionEngine);
+    // Directly call the handler to avoid re-entering the execute flow
+    const handlerResult = await action.handler(confirmation.input, ctx);
     const endAt = new Date();
     const durationMs = endAt.getTime() - startedAt.getTime();
 
     await dbClient.updateActionEvent(confirmation.actionEventId, {
-      output: handlerResult.result,
+      output: handlerResult,
       durationMs,
     });
 
-    return handlerResult;
+    return { result: handlerResult, eventId: confirmation.actionEventId };
   } catch (error) {
     const endAt = new Date();
     const durationMs = endAt.getTime() - startedAt.getTime();
@@ -275,7 +285,7 @@ export async function rejectIrreversibleConfirmation(
 
 export async function expirePendingIrreversibleConfirmations(dbClient: DbClient): Promise<void> {
   const now = new Date();
-  const pendingConfirmations = await dbClient.findPendingIrreversibleConfirmations();
+  const pendingConfirmations = await dbClient.findAllPendingIrreversibleConfirmations();
 
   for (const confirmation of pendingConfirmations) {
     if (confirmation.expiresAt < now) {

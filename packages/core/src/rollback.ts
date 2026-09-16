@@ -1,9 +1,6 @@
 import type {
   DbClient,
   ActionContext,
-  Actor,
-  ActionEvent,
-  RollbackFn,
   DefinedAction,
   ActionResult,
 } from "./types";
@@ -81,22 +78,27 @@ async function getEventDetails(actionEventId: string, dbClient: DbClient): Promi
   output: unknown;
   permissionResult: string;
 } | null> {
-  const { rows } = await (dbClient as any).pool?.query?.(
-    `SELECT action_name, workspace_id, output, permission_result
-     FROM action_events
-     WHERE id = $1`,
-    [actionEventId]
-  );
+  // Try Postgres pool first
+  const pool = (dbClient as any).pool;
+  if (pool) {
+    const { rows } = await pool.query(
+      `SELECT action_name, workspace_id, output, permission_result
+       FROM action_events
+       WHERE id = $1`,
+      [actionEventId]
+    );
 
-  if (rows && rows.length > 0) {
-    return {
-      actionName: rows[0].action_name,
-      workspaceId: rows[0].workspace_id,
-      output: rows[0].output ? JSON.parse(rows[0].output) : null,
-      permissionResult: rows[0].permission_result,
-    };
+    if (rows && rows.length > 0) {
+      return {
+        actionName: rows[0].action_name,
+        workspaceId: rows[0].workspace_id,
+        output: rows[0].output ? JSON.parse(rows[0].output) : null,
+        permissionResult: rows[0].permission_result,
+      };
+    }
   }
 
+  // Fall back to InMemoryDbClient events array
   const events = (dbClient as any).events;
   if (events) {
     const event = events.find((e: any) => e.id === actionEventId);

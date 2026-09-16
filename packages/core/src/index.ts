@@ -22,5 +22,6 @@ export {
 } from "./irreversible-confirmation";
 export {
   rollbackAction,
+  ActionRollbackError,
 } from "./rollback";
 export { InMemoryDbClient } from "./test-utils";

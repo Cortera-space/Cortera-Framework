@@ -648,6 +648,30 @@ export class PostgresDbClient implements DbClient {
     }));
   }
 
+  async findAllPendingIrreversibleConfirmations(): Promise<IrreversibleConfirmation[]> {
+    const { rows } = await this.pool.query(
+      `SELECT id, action_event_id, action_name, input, actor_id, workspace_id,
+              confirmation_token, channel, sent_to, status, expires_at, confirmed_at, created_at
+       FROM irreversible_confirmations
+       WHERE status = 'pending'`
+    );
+    return rows.map((row) => ({
+      id: row.id,
+      actionEventId: row.action_event_id,
+      actionName: row.action_name,
+      input: JSON.parse(row.input),
+      actorId: row.actor_id,
+      workspaceId: row.workspace_id,
+      confirmationToken: row.confirmation_token,
+      channel: row.channel,
+      sentTo: row.sent_to,
+      status: row.status as IrreversibleConfirmation["status"],
+      expiresAt: new Date(row.expires_at),
+      confirmedAt: row.confirmed_at ? new Date(row.confirmed_at) : null,
+      createdAt: new Date(row.created_at),
+    }));
+  }
+
   async listPendingIrreversibleConfirmations(workspaceId: string): Promise<PendingIrreversibleConfirmationWithEvent[]> {
     const { rows: confirmationRows } = await this.pool.query(
       `SELECT id, action_event_id, action_name, input, actor_id, workspace_id,

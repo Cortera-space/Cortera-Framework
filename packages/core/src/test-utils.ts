@@ -325,6 +325,10 @@ export class InMemoryDbClient implements DbClient {
     return this.confirmations.filter((c) => c.status === "pending" && c.expiresAt >= now);
   }
 
+  async findAllPendingIrreversibleConfirmations(): Promise<IrreversibleConfirmation[]> {
+    return this.confirmations.filter((c) => c.status === "pending");
+  }
+
   async listPendingIrreversibleConfirmations(workspaceId: string): Promise<PendingIrreversibleConfirmationWithEvent[]> {
     const pending = this.confirmations.filter((c) => c.status === "pending" && c.workspaceId === workspaceId);
     return pending.map((confirmation) => {
