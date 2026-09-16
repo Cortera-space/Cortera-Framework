@@ -8,7 +8,6 @@ import type {
   ActorState,
   InsertActorState,
   ListEventsOptions,
-  ListEventsFilters,
   PaginatedResult,
   ActionEvent,
   ActionEventWithChain,

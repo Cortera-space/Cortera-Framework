@@ -17,7 +17,7 @@ export interface ApprovalRouteOptions {
 }
 
 export function createApprovalRouteHandler(options: ApprovalRouteOptions) {
-  const { dbClient, registry, resolveActor, defaultWorkspaceId } = options;
+  const { dbClient, registry, resolveActor } = options;
 
   return async (
     request: NextRequest,

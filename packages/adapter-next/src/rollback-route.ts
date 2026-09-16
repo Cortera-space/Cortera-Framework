@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { DbClient, Actor, rollbackAction, ActionRollbackError } from "@tera/core";
-import { resolveActorFromRequest, type ApiKeyMapping } from "@tera/adapter-next";
 
 export interface RollbackRouteOptions {
   dbClient: DbClient;

@@ -1,8 +1,6 @@
 import { z } from "zod";
 import { defineAction, type ActionContext } from "@tera/core";
 
-const archivedNotes = new Map<string, { id: string; title: string; content: string }>();
-
 export const archiveNoteAction = defineAction({
   name: "archiveNote",
   description: "Archives a note (reversible with rollback)",

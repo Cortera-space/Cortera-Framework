@@ -7,7 +7,6 @@ import type {
   ActorState,
   InsertActorState,
   ListEventsOptions,
-  ListEventsFilters,
   PaginatedResult,
   ActionEvent,
   ActionEventWithChain,
@@ -250,7 +249,7 @@ export class InMemoryDbClient implements DbClient {
 
   async listContainedActors(workspaceId: string): Promise<ContainedActor[]> {
     const contained: ContainedActor[] = [];
-    for (const [key, state] of this.actorStates) {
+    for (const state of this.actorStates.values()) {
       if (state.workspaceId === workspaceId && (state.status === "contained" || state.status === "revoked")) {
         contained.push({
           actorId: state.actorId,

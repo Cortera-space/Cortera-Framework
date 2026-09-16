@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { z } from "zod";
 import {
   defineAction,
@@ -42,7 +42,7 @@ describe("rollback scaffolding", () => {
       }),
       riskTier: "delayed",
       handler: async (input) => ({ archived: true, noteId: input.noteId }),
-      rollback: async (output, ctx: ActionContext) => {
+      rollback: async (output, _ctx: ActionContext) => {
         return { restored: true, noteId: (output as any).noteId };
       },
     });

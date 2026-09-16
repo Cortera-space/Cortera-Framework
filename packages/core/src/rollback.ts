@@ -4,7 +4,6 @@ import type {
   DefinedAction,
   ActionResult,
 } from "./types";
-import { recordEvent } from "./event-log";
 
 export class ActionRollbackError extends Error {
   constructor(

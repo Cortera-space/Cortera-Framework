@@ -144,7 +144,6 @@ describe("irreversible confirmation", () => {
 
   it("confirmIrreversibleConfirmation executes handler after confirmation", async () => {
     // Execute the action to create event and confirmation
-    let actionEventId: string;
     try {
       await action.execute(
         { workspaceId: "ws-1", confirmation: "DELETE" },
@@ -154,7 +153,7 @@ describe("irreversible confirmation", () => {
       );
     } catch (error) {
       expect(error).toBeInstanceOf(ActionPendingIrreversibleConfirmationError);
-      actionEventId = (error as ActionPendingIrreversibleConfirmationError).confirmationId;
+      (error as ActionPendingIrreversibleConfirmationError).confirmationId;
     }
 
     const confirmations = await dbClient.findPendingIrreversibleConfirmations();
@@ -173,7 +172,6 @@ describe("irreversible confirmation", () => {
     denyEngine.addRule({ permissionKey: "workspaces.delete", result: "deny" });
 
     // Execute the action to create event and confirmation
-    let actionEventId: string;
     try {
       await action.execute(
         { workspaceId: "ws-1", confirmation: "DELETE" },
@@ -183,7 +181,7 @@ describe("irreversible confirmation", () => {
       );
     } catch (error) {
       expect(error).toBeInstanceOf(ActionPendingIrreversibleConfirmationError);
-      actionEventId = (error as ActionPendingIrreversibleConfirmationError).confirmationId;
+      (error as ActionPendingIrreversibleConfirmationError).confirmationId;
     }
 
     const confirmations = await dbClient.findPendingIrreversibleConfirmations();
@@ -199,7 +197,6 @@ describe("irreversible confirmation", () => {
 
   it("confirmIrreversibleConfirmation re-checks containment at confirmation time", async () => {
     // Execute the action to create event and confirmation
-    let actionEventId: string;
     try {
       await action.execute(
         { workspaceId: "ws-1", confirmation: "DELETE" },
@@ -209,7 +206,7 @@ describe("irreversible confirmation", () => {
       );
     } catch (error) {
       expect(error).toBeInstanceOf(ActionPendingIrreversibleConfirmationError);
-      actionEventId = (error as ActionPendingIrreversibleConfirmationError).confirmationId;
+      (error as ActionPendingIrreversibleConfirmationError).confirmationId;
     }
 
     // Now contain the actor
@@ -234,9 +231,8 @@ describe("irreversible confirmation", () => {
     expect(updatedConfirmation?.status).toBe("rejected");
   });
 
-  it("rejectIrreversibleConfirmation prevents execution", async () => {
+it("rejectIrreversibleConfirmation prevents execution", async () => {
     // Execute the action to create event and confirmation
-    let actionEventId: string;
     try {
       await action.execute(
         { workspaceId: "ws-1", confirmation: "DELETE" },
@@ -246,7 +242,7 @@ describe("irreversible confirmation", () => {
       );
     } catch (error) {
       expect(error).toBeInstanceOf(ActionPendingIrreversibleConfirmationError);
-      actionEventId = (error as ActionPendingIrreversibleConfirmationError).confirmationId;
+      (error as ActionPendingIrreversibleConfirmationError).confirmationId;
     }
 
     const confirmations = await dbClient.findPendingIrreversibleConfirmations();
@@ -263,15 +259,7 @@ describe("irreversible confirmation", () => {
   });
 
   it("expirePendingIrreversibleConfirmations auto-denies expired confirmations", async () => {
-    const shortTtlResolver: WorkspaceContactResolver = {
-      getContact: vi.fn().mockResolvedValue({
-        channel: "email",
-        destination: "admin@example.com",
-      }),
-    };
-
     // Execute the action to create event and confirmation
-    let actionEventId: string;
     try {
       await action.execute(
         { workspaceId: "ws-1", confirmation: "DELETE" },
@@ -281,7 +269,7 @@ describe("irreversible confirmation", () => {
       );
     } catch (error) {
       expect(error).toBeInstanceOf(ActionPendingIrreversibleConfirmationError);
-      actionEventId = (error as ActionPendingIrreversibleConfirmationError).confirmationId;
+      (error as ActionPendingIrreversibleConfirmationError).confirmationId;
     }
 
     // Wait for expiry (the TTL in the action is 15 min default, but we can manually expire)
