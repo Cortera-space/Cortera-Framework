@@ -115,6 +115,12 @@ export class InMemoryDbClient implements DbClient {
     if (filters?.to) {
       filtered = filtered.filter((e) => e.startedAt <= filters.to!);
     }
+    if (filters?.dryRun !== undefined) {
+      filtered = filtered.filter((e) => e.dryRun === filters.dryRun);
+    } else {
+      // Default: exclude dry-run events (treat undefined as false for backward compat)
+      filtered = filtered.filter((e) => e.dryRun !== true);
+    }
     if (cursor) {
       const cursorDate = new Date(cursor);
       filtered = filtered.filter((e) => e.startedAt < cursorDate);
@@ -135,13 +141,14 @@ export class InMemoryDbClient implements DbClient {
       parentEventId: e.parentEventId,
       createdAt: e.startedAt,
       updatedAt: e.startedAt,
+      dryRun: e.dryRun ?? false,
     }));
 
     const nextCursor = filtered.length > limit ? filtered[limit - 1].startedAt.toISOString() : null;
     return { items, nextCursor };
   }
 
-  async getEventWithChain(eventId: string): Promise<ActionEventWithChain | null> {
+  async getEventWithChain(eventId: string, includeDryRun = false): Promise<ActionEventWithChain | null> {
     const eventMap = new Map<string, ActionEventWithChain>();
     const allEventIds = new Set<string>();
 
@@ -149,6 +156,7 @@ export class InMemoryDbClient implements DbClient {
     while (currentId) {
       const event = this.events.find((e) => e.id === currentId);
       if (!event) break;
+      if (!includeDryRun && event.dryRun) break;
       allEventIds.add(currentId);
       currentId = event.parentEventId ?? null;
     }
@@ -156,7 +164,7 @@ export class InMemoryDbClient implements DbClient {
     const stack = [eventId];
     while (stack.length > 0) {
       const parentId = stack.pop()!;
-      const children = this.events.filter((e) => e.parentEventId === parentId);
+      const children = this.events.filter((e) => e.parentEventId === parentId && (includeDryRun || !e.dryRun));
       for (const child of children) {
         allEventIds.add(child.id);
         stack.push(child.id);
@@ -179,6 +187,7 @@ export class InMemoryDbClient implements DbClient {
         parentEventId: event.parentEventId,
         createdAt: event.startedAt,
         updatedAt: event.startedAt,
+        dryRun: event.dryRun ?? false,
         ancestors: [],
         descendants: [],
       });
@@ -226,6 +235,7 @@ export class InMemoryDbClient implements DbClient {
         parentEventId: event.parentEventId,
         createdAt: event.createdAt,
         updatedAt: event.updatedAt,
+        dryRun: event.dryRun,
         ancestors: [],
         descendants: [],
       };

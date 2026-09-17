@@ -11,7 +11,10 @@ import {
   type ActionContext,
   type DefinedAction,
   type ActionResult,
+  type ActionExecutionResult,
+  type DryRunResult,
   type PermissionEngine,
+  type ExecuteOptions,
 } from "./types";
 import type { ActionConfig } from "./types";
 import { recordEvent, updateEvent } from "./event-log";
@@ -34,12 +37,19 @@ export function defineAction<TInput extends z.ZodTypeAny, TOutput = unknown>(
   const riskTier = config.riskTier ?? "standard";
   const confirmationTtlMs = config.confirmationTtlMs ?? 15 * 60 * 1000;
 
-  const execute = async (rawInput: unknown, ctx: ActionContext, dbClient?: DbClient, permissionEngine?: PermissionEngine): Promise<ActionResult<unknown>> => {
+  const execute = async (
+    rawInput: unknown,
+    ctx: ActionContext,
+    dbClient?: DbClient,
+    permissionEngine?: PermissionEngine,
+    options?: ExecuteOptions
+  ): Promise<ActionExecutionResult<unknown>> => {
+    const dryRun = options?.dryRun ?? false;
     const startedAt = new Date();
 
     if (dbClient) {
       try {
-        await checkActorContainment(dbClient, ctx.actor, ctx.workspaceId);
+        await checkActorContainment(dbClient, ctx.actor, ctx.workspaceId, dryRun);
       } catch (error) {
         if (error instanceof ActionContainmentError) {
           throw error;
@@ -47,7 +57,7 @@ export function defineAction<TInput extends z.ZodTypeAny, TOutput = unknown>(
         throw error;
       }
 
-      await checkBlastRadius(dbClient, ctx, self as DefinedAction<any, unknown>);
+      await checkBlastRadius(dbClient, ctx, self as DefinedAction<any, unknown>, dryRun);
     }
 
     const permissionResult = permissionEngine
@@ -75,6 +85,7 @@ export function defineAction<TInput extends z.ZodTypeAny, TOutput = unknown>(
           durationMs: null,
           workspaceId: ctx.workspaceId,
           blastRadius: config.blastRadius ?? null,
+          dryRun,
         };
         await recordEvent(dbClient, insertEvent);
       }
@@ -109,6 +120,7 @@ export function defineAction<TInput extends z.ZodTypeAny, TOutput = unknown>(
         durationMs: null,
         workspaceId: ctx.workspaceId,
         blastRadius: config.blastRadius ?? null,
+        dryRun,
       };
       const { id: eventId } = await recordEvent(dbClient, insertEvent);
 
@@ -156,6 +168,7 @@ export function defineAction<TInput extends z.ZodTypeAny, TOutput = unknown>(
         durationMs: null,
         workspaceId: ctx.workspaceId,
         blastRadius: config.blastRadius ?? null,
+        dryRun,
       };
       const { id: actionEventId } = await recordEvent(dbClient, insertEvent);
 
@@ -203,6 +216,7 @@ export function defineAction<TInput extends z.ZodTypeAny, TOutput = unknown>(
           durationMs: null,
           workspaceId: ctx.workspaceId,
           blastRadius: config.blastRadius ?? null,
+          dryRun,
         };
         await recordEvent(dbClient, insertEvent);
       }
@@ -230,9 +244,14 @@ export function defineAction<TInput extends z.ZodTypeAny, TOutput = unknown>(
         durationMs: null,
         workspaceId: ctx.workspaceId,
         blastRadius: config.blastRadius ?? null,
+        dryRun,
       };
       const { id } = await recordEvent(dbClient, insertEvent);
       eventId = id;
+    }
+
+    if (dryRun) {
+      return { wouldSucceed: true as const, eventId };
     }
 
     try {

@@ -1,0 +1,9 @@
+{
+  "name": "test-project",
+  "version": "0.0.0",
+  "type": "module",
+  "dependencies": {
+    "@tera/core": "workspace:*",
+    "zod": "^3.22.0"
+  }
+}

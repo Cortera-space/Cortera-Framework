@@ -5,6 +5,10 @@ export type Actor = {
   actorId: string;
 };
 
+export interface ExecuteOptions {
+  dryRun?: boolean;
+}
+
 export type ActionContext = {
   actor: Actor;
   workspaceId: string;
@@ -167,6 +171,13 @@ export interface ActionResult<T = unknown> {
   eventId: string;
 }
 
+export interface DryRunResult {
+  wouldSucceed: true;
+  eventId?: string;
+}
+
+export type ActionExecutionResult<T = unknown> = ActionResult<T> | DryRunResult;
+
 export interface DefinedAction<TInput extends z.ZodTypeAny, TOutput = unknown> {
   name: string;
   description: string;
@@ -181,8 +192,9 @@ export interface DefinedAction<TInput extends z.ZodTypeAny, TOutput = unknown> {
     rawInput: unknown,
     ctx: ActionContext,
     dbClient?: DbClient,
-    permissionEngine?: PermissionEngine
-  ): Promise<ActionResult<unknown>>;
+    permissionEngine?: PermissionEngine,
+    options?: ExecuteOptions
+  ): Promise<ActionExecutionResult<unknown>>;
 }
 
 export interface ActionEvent<TInput = unknown, TOutput = unknown> {
@@ -198,6 +210,7 @@ export interface ActionEvent<TInput = unknown, TOutput = unknown> {
   parentEventId: string | null;
   createdAt: Date;
   updatedAt: Date;
+  dryRun: boolean;
 }
 
 export interface ActionEventWithChain extends ActionEvent {
@@ -211,6 +224,7 @@ export interface ListEventsFilters {
   permissionResult?: PermissionResult;
   from?: Date;
   to?: Date;
+  dryRun?: boolean;
 }
 
 export interface ListEventsOptions {
@@ -268,6 +282,7 @@ export interface InsertActionEvent {
   durationMs: number | null;
   workspaceId: string;
   blastRadius: string[] | null;
+  dryRun?: boolean;
 }
 
 export type IrreversibleConfirmationStatus = "pending" | "confirmed" | "expired" | "rejected";
@@ -314,6 +329,15 @@ export interface PendingIrreversibleConfirmationWithEvent {
   };
 }
 
+export interface WorkspaceContact {
+  channel: "email" | "sms";
+  destination: string;
+}
+
+export interface WorkspaceContactResolver {
+  getContact(workspaceId: string): Promise<WorkspaceContact | null>;
+}
+
 export interface DbClient {
   insertActionEvent(event: InsertActionEvent): Promise<{ id: string }>;
   updateActionEvent(id: string, event: Partial<InsertActionEvent>): Promise<void>;
@@ -326,7 +350,7 @@ export interface DbClient {
   findActorState(actorId: string, workspaceId: string): Promise<ActorState | null>;
   upsertActorState(state: InsertActorState): Promise<void>;
   listEvents(workspaceId: string, options?: ListEventsOptions): Promise<PaginatedResult<ActionEvent>>;
-  getEventWithChain(eventId: string): Promise<ActionEventWithChain | null>;
+  getEventWithChain(eventId: string, includeDryRun?: boolean): Promise<ActionEventWithChain | null>;
   listContainedActors(workspaceId: string): Promise<ContainedActor[]>;
   listPendingApprovals(workspaceId: string, options?: ListPendingApprovalsOptions): Promise<PendingApprovalWithEvent[]>;
 

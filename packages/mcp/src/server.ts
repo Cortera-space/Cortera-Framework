@@ -5,6 +5,7 @@ import type {
   PermissionEngine,
   Actor,
   DefinedAction,
+  ActionExecutionResult,
 } from "@tera/core";
 import {
   ActionValidationError,
@@ -34,7 +35,7 @@ function toStandardSchema(zodSchema: any) {
     $refStrategy: "none",
   }) as Record<string, unknown>;
 
-  let inputSchema = { ...jsonSchema, $schema: "http://json-schema.org/draft-07/schema#" };
+  let inputSchema: Record<string, unknown> = { ...jsonSchema, $schema: "http://json-schema.org/draft-07/schema#" };
 
   if (inputSchema.$ref && typeof inputSchema.$ref === "string") {
     const refPath = inputSchema.$ref;
@@ -96,11 +97,17 @@ export function createMcpActionServer(options: McpActionServerOptions): McpActio
               dbClient,
               permissionEngine
             );
+            let resultValue: unknown;
+            if ("wouldSucceed" in result) {
+              resultValue = { wouldSucceed: true };
+            } else {
+              resultValue = result.result;
+            }
             return {
               content: [
                 {
                   type: "text" as const,
-                  text: JSON.stringify(result.result),
+                  text: JSON.stringify(resultValue),
                 },
               ],
             };
