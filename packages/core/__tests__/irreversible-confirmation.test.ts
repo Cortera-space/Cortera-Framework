@@ -49,7 +49,7 @@ describe("irreversible confirmation", () => {
       description: "Deletes a workspace",
       permission: "workspaces.delete",
       inputSchema: z.object({
-        workspaceId: z.string().uuid(),
+        workspaceId: z.string(),
         confirmation: z.literal("DELETE"),
       }),
       riskTier: "irreversible",

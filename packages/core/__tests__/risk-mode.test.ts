@@ -413,6 +413,7 @@ describe("Risk Mode - Guarded vs Autonomous", () => {
         inputSchema: z.object({ value: z.string() }),
         riskTier: "delayed",
         delayWindowMs: 5000,
+        riskMode: "autonomous",
         handler,
       });
 
@@ -421,7 +422,7 @@ describe("Risk Mode - Guarded vs Autonomous", () => {
       permissionEngine.addRule({ actorType: "human", permissionKey: "test.autonomous", result: "allow" });
 
       // Execute with autonomous riskMode
-      const result = await action.execute({ value: "test" }, makeCtx(), dbClient, permissionEngine, "autonomous");
+      const result = await action.execute({ value: "test" }, makeCtx(), dbClient, permissionEngine);
       
       // Should execute immediately, not return delayed
       expect(result).toEqual({ result: { success: true }, eventId: expect.any(String) });
@@ -437,6 +438,7 @@ describe("Risk Mode - Guarded vs Autonomous", () => {
         permission: "test.autonomous.irrev",
         inputSchema: z.object({ value: z.string() }),
         riskTier: "irreversible",
+        riskMode: "autonomous",
         handler,
       });
 
@@ -445,7 +447,7 @@ describe("Risk Mode - Guarded vs Autonomous", () => {
       permissionEngine.addRule({ actorType: "human", permissionKey: "test.autonomous.irrev", result: "allow" });
 
       // Execute with autonomous riskMode
-      const result = await action.execute({ value: "test" }, makeCtx(), dbClient, permissionEngine, "autonomous");
+      const result = await action.execute({ value: "test" }, makeCtx(), dbClient, permissionEngine);
       
       // Should execute immediately
       expect(result).toEqual({ result: { success: true }, eventId: expect.any(String) });

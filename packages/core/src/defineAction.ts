@@ -61,11 +61,12 @@ async function runFullChecks(
   dbClient: DbClient | undefined,
   ctx: ActionContext,
   action: DefinedAction<any>,
-  permissionEngine: PermissionEngine | undefined
+  permissionEngine: PermissionEngine | undefined,
+  dryRun = false
 ): Promise<"allow" | "deny" | "approval_required"> {
   if (dbClient) {
     try {
-      await checkActorContainment(dbClient, ctx.actor, ctx.workspaceId);
+      await checkActorContainment(dbClient, ctx.actor, ctx.workspaceId, dryRun);
     } catch (error) {
       if (error instanceof ActionContainmentError) {
         throw error;
@@ -73,7 +74,7 @@ async function runFullChecks(
       throw error;
     }
 
-    await checkBlastRadius(dbClient, ctx, action);
+    await checkBlastRadius(dbClient, ctx, action, dryRun);
   }
 
   const permissionResult = permissionEngine
@@ -97,7 +98,7 @@ async function executeImmediate(
   startedAt: Date,
   dryRun: boolean
 ): Promise<ActionExecutionResult<unknown>> {
-  const permissionResult = await runFullChecks(dbClient, ctx, { name: config.name, permission: config.permission, blastRadius: config.blastRadius } as DefinedAction<any>, permissionEngine);
+  const permissionResult = await runFullChecks(dbClient, ctx, { name: config.name, permission: config.permission, blastRadius: config.blastRadius } as DefinedAction<any>, permissionEngine, dryRun);
 
   if (permissionResult === "deny") {
     if (dbClient) {
