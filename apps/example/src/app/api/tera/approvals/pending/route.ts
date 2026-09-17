@@ -2,14 +2,13 @@ import { NextRequest } from "next/server";
 import {
   dbClient,
   resolveActorFromRequest,
-  apiKeyMapping,
   defaultWorkspaceId,
 } from "@/lib/registry";
 import { createPendingApprovalsRouteHandler } from "@tera/adapter-next";
 
 const pendingApprovalsHandler = createPendingApprovalsRouteHandler({
   dbClient,
-  resolveActor: (request: NextRequest) => resolveActorFromRequest(request, { apiKeyMapping }),
+  resolveActor: (request: NextRequest) => resolveActorFromRequest(request, { dbClient }),
   defaultWorkspaceId,
 });
 

@@ -3,7 +3,6 @@ import {
   dbClient,
   registry,
   resolveActorFromRequest,
-  apiKeyMapping,
   defaultWorkspaceId,
 } from "@/lib/registry";
 import { createApprovalRouteHandler } from "@tera/adapter-next";
@@ -11,7 +10,7 @@ import { createApprovalRouteHandler } from "@tera/adapter-next";
 const approvalHandler = createApprovalRouteHandler({
   dbClient,
   registry,
-  resolveActor: (request: NextRequest) => resolveActorFromRequest(request, { apiKeyMapping }),
+  resolveActor: (request: NextRequest) => resolveActorFromRequest(request, { dbClient }),
   defaultWorkspaceId,
 });
 

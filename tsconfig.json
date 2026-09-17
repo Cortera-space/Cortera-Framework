@@ -20,7 +20,9 @@
       "@tera/adapter-next": ["./packages/adapter-next/src/index.ts"],
       "@tera/mcp": ["./packages/mcp/src/index.ts"],
       "@tera/db": ["./packages/db/src/index.ts"],
-      "@tera/ui": ["./packages/ui/src/index.ts"]
+      "@tera/ui": ["./packages/ui/src/index.ts"],
+      "@tera/auth": ["./packages/auth/src/index.ts"],
+      "@tera/cli": ["./packages/cli/src/index.ts"]
     }
   },
   "include": ["packages/**/*.ts", "apps/**/*.ts", "apps/**/*.tsx"],

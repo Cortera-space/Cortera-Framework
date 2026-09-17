@@ -23,7 +23,7 @@ export function generateMcpToolSchema(action: DefinedAction<any>): McpToolSchema
     $refStrategy: "none",
   }) as JsonSchema;
 
-  let inputSchema: JsonSchema = { ...jsonSchema, $schema: "http://json-schema.org/draft-07/schema#" };
+let inputSchema: JsonSchema = { ...jsonSchema, $schema: "http://json-schema.org/draft-07/schema#" };
 
   if (inputSchema.$ref && typeof inputSchema.$ref === "string") {
     const refPath = inputSchema.$ref;

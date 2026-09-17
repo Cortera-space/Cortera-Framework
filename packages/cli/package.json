@@ -23,6 +23,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@tera/auth": "workspace:*",
     "@tera/core": "workspace:*",
     "@tera/db": "workspace:*",
     "chalk": "^5.3.0",

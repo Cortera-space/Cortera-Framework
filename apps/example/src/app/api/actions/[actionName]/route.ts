@@ -4,7 +4,6 @@ import {
   dbClient,
   permissionEngine,
   resolveActorFromRequest,
-  apiKeyMapping,
   defaultWorkspaceId,
 } from "@/lib/registry";
 import { createActionHandler } from "@tera/adapter-next";
@@ -13,7 +12,7 @@ const actionHandler = createActionHandler({
   registry,
   dbClient,
   permissionEngine,
-  resolveActor: (request: NextRequest) => resolveActorFromRequest(request, { apiKeyMapping }),
+  resolveActor: (request: NextRequest) => resolveActorFromRequest(request, { dbClient }),
   defaultWorkspaceId,
 });
 
