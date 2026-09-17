@@ -1,13 +1,13 @@
 import { createNoteAction } from "./createNote";
 import { notifyWatchersAction } from "./notifyWatchers";
-import { type DbClient, type ListEventsOptions, type PaginatedResult, type ActionEvent, type ActionEventWithChain, type ContainedActor, type PendingApprovalWithEvent, type ListPendingApprovalsOptions } from "@tera/core";
+import { type ListEventsOptions, type PaginatedResult, type ActionEvent, type ActionEventWithChain, type ContainedActor, type PendingApprovalWithEvent, type ListPendingApprovalsOptions } from "@tera/core";
 
 const ctx = {
   actor: { actorType: "human" as const, actorId: "demo-user" },
   workspaceId: "demo-workspace",
 };
 
-class MockDbClient implements DbClient {
+class MockDbClient {
   private events: Array<{
     id: string;
     actionName: string;
@@ -83,15 +83,15 @@ async function main() {
     const createResult = await createNoteAction.execute(
       { title: "Hello Tera", content: "First note" },
       ctx,
-      dbClient
-    );
+      dbClient as any
+    ) as { result: any; eventId: string };
     console.log("createNote executed:", createResult.result);
 
     const notifyResult = await notifyWatchersAction.execute(
       { noteId: (createResult.result as { id: string }).id, title: "Hello Tera" },
       { ...ctx, parentEventId: createResult.eventId },
-      dbClient
-    );
+      dbClient as any
+    ) as { result: any; eventId: string };
     console.log("notifyWatchers executed:", notifyResult.result);
 
     console.log("\n--- Action Events ---");

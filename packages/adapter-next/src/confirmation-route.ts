@@ -1,17 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { DbClient, Actor } from "@tera/core";
+import { DbClient, Actor, DefinedAction, ActionResult } from "@tera/core";
 import { confirmIrreversibleConfirmation, rejectIrreversibleConfirmation } from "@tera/core";
 
 export interface ConfirmationRouteOptions {
   dbClient: DbClient;
   registry: {
-    get(name: string): {
-      execute: (
-        rawInput: unknown,
-        ctx: { actor: Actor; workspaceId: string; parentEventId?: string },
-        dbClient: DbClient
-      ) => Promise<{ result: unknown; eventId: string }>;
-    } | undefined;
+    get(name: string): DefinedAction<any> | undefined;
   };
 }
 

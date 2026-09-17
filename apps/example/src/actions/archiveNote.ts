@@ -12,10 +12,9 @@ export const archiveNoteAction = defineAction({
   handler: async (input) => {
     return { archived: true, noteId: input.noteId };
   },
-  rollback: async (output, ctx: ActionContext) => {
-    const originalInput = ctx.parentEventId 
-      ? { noteId: (output as any).noteId }
-      : { noteId: (output as any).noteId };
-    return { restored: true, noteId: originalInput.noteId };
+  rollback: async (output, _ctx: ActionContext) => {
+    const noteId = (output as any).noteId;
+    // In a real app, you would restore the note here
+    console.log(`Rolling back archive for note ${noteId}`);
   },
 });

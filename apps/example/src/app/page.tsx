@@ -13,7 +13,7 @@ export default function Home() {
         <h2>Create Note (ActionForm)</h2>
         <p>Allowed for humans — submit the form to create a note.</p>
         <ActionForm
-          action={createNoteAction}
+          action={createNoteAction as any}
           basePath="/app/api/actions"
           actorId="demo-user"
           actorType="human"
@@ -26,7 +26,7 @@ export default function Home() {
         <h2>Delete Customer (ActionButton)</h2>
         <p>Requires approval — click the button to see the pending-approval state.</p>
         <ActionButton
-          action={deleteCustomerAction}
+          action={deleteCustomerAction as any}
           input={{ id: "cust-123", reason: "requested by demo" }}
           basePath="/app/api/actions"
           actorId="demo-user"
@@ -40,7 +40,7 @@ export default function Home() {
         <h2>Notify Watchers (ActionButton)</h2>
         <p>Denied for humans — click the button to see the permission-denied state.</p>
         <ActionButton
-          action={notifyWatchersAction}
+          action={notifyWatchersAction as any}
           input={{ noteId: "note-1", title: "Hello" }}
           basePath="/app/api/actions"
           actorId="demo-user"

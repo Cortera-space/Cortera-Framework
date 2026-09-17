@@ -93,6 +93,9 @@ importers:
 
   packages/adapter-next:
     dependencies:
+      '@tera/auth':
+        specifier: workspace:*
+        version: link:../auth
       '@tera/core':
         specifier: workspace:*
         version: link:../core
@@ -100,8 +103,30 @@ importers:
         specifier: ^14.0.0
         version: 14.2.35(react-dom@18.3.1)(react@18.3.1)
 
+  packages/auth:
+    dependencies:
+      '@tera/core':
+        specifier: workspace:*
+        version: link:../core
+      '@tera/db':
+        specifier: workspace:*
+        version: link:../db
+    devDependencies:
+      tsup:
+        specifier: ^8.0.0
+        version: 8.5.1(tsx@4.23.13)(typescript@5.9.3)
+      typescript:
+        specifier: ^5.3.0
+        version: 5.9.3
+      vitest:
+        specifier: ^1.0.0
+        version: 1.6.1(@types/node@20.19.43)(jsdom@22.1.0)
+
   packages/cli:
     dependencies:
+      '@tera/auth':
+        specifier: workspace:*
+        version: link:../auth
       '@tera/core':
         specifier: workspace:*
         version: link:../core
@@ -177,6 +202,9 @@ importers:
       '@modelcontextprotocol/server':
         specifier: ^2.0.0
         version: 2.0.0
+      '@tera/auth':
+        specifier: workspace:*
+        version: link:../auth
       '@tera/core':
         specifier: workspace:*
         version: link:../core

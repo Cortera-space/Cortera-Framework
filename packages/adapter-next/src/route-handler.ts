@@ -10,6 +10,8 @@ import {
   ActionPendingApprovalError,
   DefinedAction,
   DryRunResult,
+  DelayedExecutionResult,
+  ActionResult,
 } from "@tera/core";
 
 export interface CreateActionHandlerOptions {
@@ -67,6 +69,10 @@ export function createActionHandler(options: CreateActionHandlerOptions) {
     const url = new URL(request.url);
     const dryRun = url.searchParams.get("dryRun") === "true";
 
+    function isDelayedResult(result: any): result is DelayedExecutionResult {
+      return "status" in result && result.status === "delayed";
+    }
+
     try {
       const result = await (action as DefinedAction<any>).execute(
         rawInput,
@@ -77,6 +83,12 @@ export function createActionHandler(options: CreateActionHandlerOptions) {
       );
       if ("wouldSucceed" in result) {
         return NextResponse.json({ wouldSucceed: true, eventId: result.eventId ?? null });
+      }
+      if (isDelayedResult(result)) {
+        return NextResponse.json(
+          { status: "delayed", pendingId: result.pendingId, scheduledRunAt: result.scheduledRunAt },
+          { status: 202 }
+        );
       }
       return NextResponse.json({ result: result.result, eventId: result.eventId });
     } catch (error) {
