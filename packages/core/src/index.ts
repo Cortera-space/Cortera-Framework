@@ -15,6 +15,10 @@ export {
   getActorState,
 } from "./containment";
 export {
+  cancelDelayedAction,
+  processPendingDelayedActions,
+} from "./delayed-actions";
+export {
   requestIrreversibleConfirmation,
   confirmIrreversibleConfirmation,
   rejectIrreversibleConfirmation,
