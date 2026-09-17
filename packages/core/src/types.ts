@@ -9,11 +9,24 @@ export interface ExecuteOptions {
   dryRun?: boolean;
 }
 
+export type TrustLabel = "trusted" | "untrusted-external";
+
+export type ProvenanceSourceType =
+  | "human_message"
+  | "tool_output"
+  | "file"
+  | "api_response";
+
+export interface InputProvenance {
+  [fieldName: string]: TrustLabel;
+}
+
 export type ActionContext = {
   actor: Actor;
   workspaceId: string;
   parentEventId?: string;
   eventId?: string;
+  inputProvenance?: InputProvenance;
 };
 
 export function withParent(ctx: ActionContext, parentEventId: string): ActionContext {
@@ -379,6 +392,24 @@ export interface WorkspaceContact {
   destination: string;
 }
 
+export interface DataProvenance {
+  id: string;
+  contentHash: string;
+  trustLabel: TrustLabel;
+  sourceType: ProvenanceSourceType;
+  sourceIdentifier: string | null;
+  workspaceId: string;
+  createdAt: Date;
+}
+
+export interface InsertDataProvenance {
+  contentHash: string;
+  trustLabel: TrustLabel;
+  sourceType: ProvenanceSourceType;
+  sourceIdentifier: string | null;
+  workspaceId: string;
+}
+
 export interface WorkspaceContactResolver {
   getContact(workspaceId: string): Promise<WorkspaceContact | null>;
 }
@@ -411,4 +442,8 @@ export interface DbClient {
   findPendingIrreversibleConfirmations(): Promise<IrreversibleConfirmation[]>;
   findAllPendingIrreversibleConfirmations(): Promise<IrreversibleConfirmation[]>;
   listPendingIrreversibleConfirmations(workspaceId: string): Promise<PendingIrreversibleConfirmationWithEvent[]>;
+
+  insertDataProvenance(provenance: InsertDataProvenance): Promise<{ id: string }>;
+  findDataProvenanceByIds(ids: string[]): Promise<DataProvenance[]>;
+  findDataProvenanceByContentHash(contentHash: string, workspaceId: string): Promise<DataProvenance | null>;
 }

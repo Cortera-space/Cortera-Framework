@@ -24,6 +24,7 @@ import type { ActionConfig } from "./types";
 import { recordEvent, updateEvent } from "./event-log";
 import { checkActorContainment, checkBlastRadius } from "./containment";
 import { requestIrreversibleConfirmation } from "./irreversible-confirmation";
+import { resolveFieldProvenance, recordProvenance, getSourceInfo } from "./provenance";
 
 async function runSchedulingChecks(
   dbClient: DbClient | undefined,
@@ -98,6 +99,15 @@ async function executeImmediate(
 ): Promise<ActionExecutionResult<unknown>> {
   const permissionResult = await runFullChecks(dbClient, ctx, { name: config.name, permission: config.permission, blastRadius: config.blastRadius } as DefinedAction<any>, permissionEngine);
 
+  const rawInputRecord = rawInput as Record<string, unknown>;
+  const fieldProvenance = resolveFieldProvenance(rawInputRecord, ctx);
+  const { sourceType, sourceIdentifier } = getSourceInfo(ctx);
+
+  let provenanceIds: string[] = [];
+  if (dbClient) {
+    provenanceIds = await recordProvenance(dbClient, rawInputRecord, fieldProvenance, ctx.workspaceId, sourceType, sourceIdentifier);
+  }
+
   if (permissionResult === "deny") {
     if (dbClient) {
       const insertEvent: InsertActionEvent = {
@@ -115,6 +125,7 @@ async function executeImmediate(
         workspaceId: ctx.workspaceId,
         blastRadius: config.blastRadius ?? null,
         dryRun,
+        provenanceIds,
       };
       await recordEvent(dbClient, insertEvent);
     }
@@ -150,6 +161,7 @@ async function executeImmediate(
       workspaceId: ctx.workspaceId,
       blastRadius: config.blastRadius ?? null,
       dryRun,
+      provenanceIds,
     };
     const { id: eventId } = await recordEvent(dbClient, insertEvent);
 
@@ -201,6 +213,7 @@ async function executeImmediate(
         workspaceId: ctx.workspaceId,
         blastRadius: config.blastRadius ?? null,
         dryRun,
+        provenanceIds,
       };
       await recordEvent(dbClient, insertEvent);
     }
@@ -229,6 +242,7 @@ async function executeImmediate(
       workspaceId: ctx.workspaceId,
       blastRadius: config.blastRadius ?? null,
       dryRun,
+      provenanceIds,
     };
     const { id } = await recordEvent(dbClient, insertEvent);
     eventId = id;
@@ -284,6 +298,11 @@ async function executeDelayed(
     throw new Error(`Delayed execution requires a dbClient: ${config.name}`);
   }
 
+  const rawInputRecord = rawInput as Record<string, unknown>;
+  const fieldProvenance = resolveFieldProvenance(rawInputRecord, ctx);
+  const { sourceType, sourceIdentifier } = getSourceInfo(ctx);
+  const provenanceIds = await recordProvenance(dbClient, rawInputRecord, fieldProvenance, ctx.workspaceId, sourceType, sourceIdentifier);
+
   // Run scheduling checks (containment + permission, but NOT blast radius)
   const permissionResult = await runSchedulingChecks(dbClient, ctx, { name: config.name, permission: config.permission, blastRadius: config.blastRadius } as DefinedAction<any>, permissionEngine);
 
@@ -302,6 +321,7 @@ async function executeDelayed(
       durationMs: null,
       workspaceId: ctx.workspaceId,
       blastRadius: config.blastRadius ?? null,
+      provenanceIds,
     };
     await recordEvent(dbClient, insertEvent);
 
@@ -327,6 +347,7 @@ async function executeDelayed(
       durationMs: null,
       workspaceId: ctx.workspaceId,
       blastRadius: config.blastRadius ?? null,
+      provenanceIds,
     };
     const { id: eventId } = await recordEvent(dbClient, insertEvent);
 
@@ -376,6 +397,7 @@ async function executeDelayed(
       durationMs: null,
       workspaceId: ctx.workspaceId,
       blastRadius: config.blastRadius ?? null,
+      provenanceIds,
     };
     await recordEvent(dbClient, insertEvent);
 
@@ -400,6 +422,7 @@ async function executeDelayed(
     durationMs: null,
     workspaceId: ctx.workspaceId,
     blastRadius: config.blastRadius ?? null,
+    provenanceIds,
   };
   const { id: eventId } = await recordEvent(dbClient, insertEvent);
 

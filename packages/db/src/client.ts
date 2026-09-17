@@ -20,6 +20,8 @@ import type {
   InsertIrreversibleConfirmation,
   IrreversibleConfirmation,
   PendingIrreversibleConfirmationWithEvent,
+  InsertDataProvenance,
+  DataProvenance,
 } from "@tera/core";
 
 export type PostgresDbClientOptions = {
@@ -899,6 +901,65 @@ export class PostgresDbClient implements DbClient {
         },
       };
     });
+  }
+
+  async insertDataProvenance(provenance: InsertDataProvenance): Promise<{ id: string }> {
+    const { rows } = await this.pool.query(
+      `INSERT INTO data_provenance (
+        content_hash, trust_label, source_type, source_identifier, workspace_id
+      ) VALUES ($1, $2, $3, $4, $5)
+      RETURNING id`,
+      [
+        provenance.contentHash,
+        provenance.trustLabel,
+        provenance.sourceType,
+        provenance.sourceIdentifier,
+        provenance.workspaceId,
+      ]
+    );
+    return { id: rows[0].id };
+  }
+
+  async findDataProvenanceByIds(ids: string[]): Promise<DataProvenance[]> {
+    if (ids.length === 0) return [];
+    const placeholders = ids.map((_, i) => `$${i + 1}`).join(",");
+    const { rows } = await this.pool.query(
+      `SELECT id, content_hash, trust_label, source_type, source_identifier, workspace_id, created_at
+       FROM data_provenance
+       WHERE id IN (${placeholders})`,
+      ids
+    );
+    return rows.map((row) => ({
+      id: row.id,
+      contentHash: row.content_hash,
+      trustLabel: row.trust_label as DataProvenance["trustLabel"],
+      sourceType: row.source_type as DataProvenance["sourceType"],
+      sourceIdentifier: row.source_identifier,
+      workspaceId: row.workspace_id,
+      createdAt: new Date(row.created_at),
+    }));
+  }
+
+  async findDataProvenanceByContentHash(contentHash: string, workspaceId: string): Promise<DataProvenance | null> {
+    const { rows } = await this.pool.query(
+      `SELECT id, content_hash, trust_label, source_type, source_identifier, workspace_id, created_at
+       FROM data_provenance
+       WHERE content_hash = $1 AND workspace_id = $2
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [contentHash, workspaceId]
+    );
+    if (rows.length === 0) return null;
+    const row = rows[0];
+    return {
+      id: row.id,
+      contentHash: row.content_hash,
+      trustLabel: row.trust_label as DataProvenance["trustLabel"],
+      sourceType: row.source_type as DataProvenance["sourceType"],
+      sourceIdentifier: row.source_identifier,
+      workspaceId: row.workspace_id,
+      createdAt: new Date(row.created_at),
+    };
   }
 
   async close(): Promise<void> {
