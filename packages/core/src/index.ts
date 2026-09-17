@@ -28,4 +28,10 @@ export {
   rollbackAction,
   ActionRollbackError,
 } from "./rollback";
+export {
+  computeContentHash,
+  resolveFieldProvenance,
+  recordProvenance,
+  getSourceInfo,
+} from "./provenance";
 export { InMemoryDbClient } from "./test-utils";

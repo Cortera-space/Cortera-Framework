@@ -3,10 +3,10 @@ import { z } from "zod";
 import {
   defineAction,
   ActionValidationError,
-
   type ActionContext,
   type DbClient,
   type InsertActionEvent,
+  type DataProvenance,
   withParent,
 } from "../src/index";
 
@@ -19,6 +19,7 @@ const makeCtx = (overrides?: Partial<ActionContext>): ActionContext => ({
 class MockDbClient implements DbClient {
   public events: InsertActionEvent[] = [];
   private idMap = new Map<string, InsertActionEvent>();
+  private provenances: (DataProvenance & { id: string })[] = [];
 
   async insertActionEvent(event: InsertActionEvent): Promise<{ id: string }> {
     const id = `event-${this.events.length + 1}`;
@@ -45,6 +46,20 @@ class MockDbClient implements DbClient {
     if (existing) {
       Object.assign(existing, event);
     }
+  }
+
+  async insertDataProvenance(provenance: any): Promise<{ id: string }> {
+    const id = `prov-${this.provenances.length + 1}`;
+    this.provenances.push({ ...provenance, id, createdAt: new Date() });
+    return { id };
+  }
+
+  async findDataProvenanceByIds(ids: string[]): Promise<DataProvenance[]> {
+    return this.provenances.filter((p) => ids.includes(p.id));
+  }
+
+  async findDataProvenanceByContentHash(_contentHash: string, _workspaceId: string): Promise<DataProvenance | null> {
+    return null;
   }
 
   findEventByActionName(actionName: string) {

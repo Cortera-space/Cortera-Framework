@@ -40,8 +40,8 @@ export class PostgresDbClient implements DbClient {
       `INSERT INTO action_events (
         action_name, actor_type, actor_id, input, output, error,
         permission_result, approved_by, parent_event_id,
-        started_at, duration_ms, workspace_id, blast_radius, dry_run
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+        started_at, duration_ms, workspace_id, blast_radius, dry_run, provenance_ids
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
       RETURNING id`,
       [
         event.actionName,
@@ -58,6 +58,7 @@ export class PostgresDbClient implements DbClient {
         event.workspaceId,
         event.blastRadius ?? null,
         event.dryRun ?? false,
+        event.provenanceIds ?? [],
       ]
     );
     return { id: rows[0].id };
@@ -90,6 +91,10 @@ export class PostgresDbClient implements DbClient {
     if (event.approvedBy !== undefined) {
       setClauses.push(`approved_by = $${idx++}`);
       values.push(event.approvedBy);
+    }
+    if (event.provenanceIds !== undefined) {
+      setClauses.push(`provenance_ids = $${idx++}`);
+      values.push(event.provenanceIds);
     }
 
     if (setClauses.length === 0) {
@@ -339,7 +344,7 @@ export class PostgresDbClient implements DbClient {
     const sql = `
       SELECT id, action_name, actor_type, actor_id, input, output, error,
              permission_result, approved_by, parent_event_id,
-             started_at, duration_ms, workspace_id, blast_radius, dry_run
+             started_at, duration_ms, workspace_id, blast_radius, dry_run, provenance_ids
       FROM action_events
       WHERE ${whereClause}
       ORDER BY started_at DESC
@@ -362,6 +367,7 @@ export class PostgresDbClient implements DbClient {
       createdAt: new Date(row.started_at),
       updatedAt: new Date(row.started_at),
       dryRun: row.dry_run,
+      provenanceIds: row.provenance_ids ?? [],
     }));
 
     const nextCursor = rows.length > limit ? rows[limit - 1].started_at.toISOString() : null;
@@ -393,6 +399,7 @@ export class PostgresDbClient implements DbClient {
         createdAt: new Date(row.started_at),
         updatedAt: new Date(row.started_at),
         dryRun: row.dry_run,
+        provenanceIds: row.provenance_ids ?? [],
         ancestors: [],
         descendants: [],
       });
@@ -423,7 +430,7 @@ export class PostgresDbClient implements DbClient {
       const { rows: result } = await this.pool.query(
         `SELECT id, action_name, actor_type, actor_id, input, output, error,
                 permission_result, approved_by, parent_event_id,
-                started_at, duration_ms, workspace_id, blast_radius, dry_run
+                started_at, duration_ms, workspace_id, blast_radius, dry_run, provenance_ids
          FROM action_events
          WHERE id = $1${includeDryRun ? "" : " AND dry_run = false"}`,
         [currentId]
@@ -445,7 +452,7 @@ export class PostgresDbClient implements DbClient {
       const { rows: result } = await this.pool.query(
         `SELECT id, action_name, actor_type, actor_id, input, output, error,
                 permission_result, approved_by, parent_event_id,
-                started_at, duration_ms, workspace_id, blast_radius, dry_run
+                started_at, duration_ms, workspace_id, blast_radius, dry_run, provenance_ids
          FROM action_events
          WHERE parent_event_id = $1${includeDryRun ? "" : " AND dry_run = false"}
          ORDER BY started_at ASC`,

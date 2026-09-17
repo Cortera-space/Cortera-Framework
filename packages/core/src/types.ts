@@ -191,6 +191,7 @@ export interface ActionConfig<TInput extends z.ZodTypeAny, TOutput = unknown> {
 export interface ActionResult<T = unknown> {
   result: T;
   eventId: string;
+  provenanceIds: string[];
 }
 
 export interface DryRunResult {
@@ -234,6 +235,7 @@ export interface ActionEvent<TInput = unknown, TOutput = unknown> {
   createdAt: Date;
   updatedAt: Date;
   dryRun: boolean;
+  provenanceIds: string[];
 }
 
 export interface ActionEventWithChain extends ActionEvent {
@@ -341,6 +343,7 @@ export interface InsertActionEvent {
   workspaceId: string;
   blastRadius: string[] | null;
   dryRun?: boolean;
+  provenanceIds?: string[];
 }
 
 export type IrreversibleConfirmationStatus = "pending" | "confirmed" | "expired" | "rejected";

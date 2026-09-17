@@ -6,6 +6,7 @@ import {
   type ActionContext,
   type DbClient,
   type InsertActionEvent,
+  type DataProvenance,
   withParent,
   getActorState,
   reviewContainedActor,
@@ -23,6 +24,7 @@ class MockDbClient implements DbClient {
   public events: InsertActionEvent[] = [];
   private idMap = new Map<string, InsertActionEvent>();
   private actorStates = new Map<string, { actorId: string; workspaceId: string; status: string; containedAt: Date | null; containedReason: string | null; reviewedBy: string | null; reviewedAt: Date | null }>();
+  private provenances: (DataProvenance & { id: string })[] = [];
 
   async insertActionEvent(event: InsertActionEvent): Promise<{ id: string }> {
     const id = `event-${this.events.length + 1}`;
@@ -97,6 +99,20 @@ class MockDbClient implements DbClient {
       reviewedBy: state.reviewedBy,
       reviewedAt: state.reviewedAt,
     });
+  }
+
+  async insertDataProvenance(provenance: any): Promise<{ id: string }> {
+    const id = `prov-${this.provenances.length + 1}`;
+    this.provenances.push({ ...provenance, id, createdAt: new Date() });
+    return { id };
+  }
+
+  async findDataProvenanceByIds(ids: string[]): Promise<DataProvenance[]> {
+    return this.provenances.filter((p) => ids.includes(p.id));
+  }
+
+  async findDataProvenanceByContentHash(_contentHash: string, _workspaceId: string): Promise<DataProvenance | null> {
+    return null;
   }
 
   findEventByActionName(actionName: string) {

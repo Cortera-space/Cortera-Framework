@@ -267,7 +267,7 @@ async function executeImmediate(
       });
     }
 
-    return { result: handlerResult, eventId: eventId ?? "" };
+    return { result: handlerResult, eventId: eventId ?? "", provenanceIds };
   } catch (error) {
     if (dbClient && eventId) {
       const endAt = new Date();
@@ -460,6 +460,11 @@ async function executeIrreversible(
     throw new Error(`Irreversible execution requires a dbClient: ${config.name}`);
   }
 
+  const rawInputRecord = rawInput as Record<string, unknown>;
+  const fieldProvenance = resolveFieldProvenance(rawInputRecord, ctx);
+  const { sourceType, sourceIdentifier } = getSourceInfo(ctx);
+  const provenanceIds = await recordProvenance(dbClient, rawInputRecord, fieldProvenance, ctx.workspaceId, sourceType, sourceIdentifier);
+
   // Run scheduling checks (containment + permission, but NOT blast radius)
   const permissionResult = await runSchedulingChecks(dbClient, ctx, { name: config.name, permission: config.permission, blastRadius: config.blastRadius } as DefinedAction<any>, permissionEngine);
 
@@ -478,6 +483,7 @@ async function executeIrreversible(
       durationMs: null,
       workspaceId: ctx.workspaceId,
       blastRadius: config.blastRadius ?? null,
+      provenanceIds,
     };
     await recordEvent(dbClient, insertEvent);
 
@@ -503,6 +509,7 @@ async function executeIrreversible(
       durationMs: null,
       workspaceId: ctx.workspaceId,
       blastRadius: config.blastRadius ?? null,
+      provenanceIds,
     };
     const { id: eventId } = await recordEvent(dbClient, insertEvent);
 
@@ -552,6 +559,7 @@ async function executeIrreversible(
       durationMs: null,
       workspaceId: ctx.workspaceId,
       blastRadius: config.blastRadius ?? null,
+      provenanceIds,
     };
     await recordEvent(dbClient, insertEvent);
 
@@ -576,6 +584,7 @@ async function executeIrreversible(
     durationMs: null,
     workspaceId: ctx.workspaceId,
     blastRadius: config.blastRadius ?? null,
+    provenanceIds,
   };
   const { id: actionEventId } = await recordEvent(dbClient, insertEvent);
 

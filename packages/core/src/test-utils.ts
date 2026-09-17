@@ -19,6 +19,8 @@ import type {
   InsertIrreversibleConfirmation,
   IrreversibleConfirmation,
   PendingIrreversibleConfirmationWithEvent,
+  InsertDataProvenance,
+  DataProvenance,
 } from "./types";
 
 export class InMemoryDbClient implements DbClient {
@@ -27,6 +29,7 @@ export class InMemoryDbClient implements DbClient {
   private approvals: Array<ActionApproval> = [];
   public pendingDelayedActions: Array<PendingDelayedAction & { id: string }> = [];
   private confirmations: Array<IrreversibleConfirmation> = [];
+  private provenances: Array<DataProvenance & { id: string }> = [];
 
   async insertActionEvent(event: InsertActionEvent): Promise<{ id: string }> {
     const id = `event-${this.events.length + 1}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -95,6 +98,28 @@ export class InMemoryDbClient implements DbClient {
       reviewedBy: state.reviewedBy,
       reviewedAt: state.reviewedAt,
     });
+  }
+
+  async insertDataProvenance(provenance: InsertDataProvenance): Promise<{ id: string }> {
+    const id = `prov-${this.provenances.length + 1}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const record: DataProvenance & { id: string } = {
+      ...provenance,
+      id,
+      createdAt: new Date(),
+    };
+    this.provenances.push(record);
+    return { id };
+  }
+
+  async findDataProvenanceByIds(ids: string[]): Promise<DataProvenance[]> {
+    return this.provenances.filter((p) => ids.includes(p.id));
+  }
+
+  async findDataProvenanceByContentHash(contentHash: string, workspaceId: string): Promise<DataProvenance | null> {
+    const found = this.provenances.find(
+      (p) => p.contentHash === contentHash && p.workspaceId === workspaceId
+    );
+    return found ?? null;
   }
 
   async insertPendingDelayedAction(action: InsertPendingDelayedAction): Promise<{ id: string }> {
@@ -214,6 +239,7 @@ export class InMemoryDbClient implements DbClient {
       createdAt: e.startedAt,
       updatedAt: e.startedAt,
       dryRun: e.dryRun ?? false,
+      provenanceIds: e.provenanceIds ?? [],
     }));
 
     const nextCursor = filtered.length > limit ? filtered[limit - 1].startedAt.toISOString() : null;
@@ -260,6 +286,7 @@ export class InMemoryDbClient implements DbClient {
         createdAt: event.startedAt,
         updatedAt: event.startedAt,
         dryRun: event.dryRun ?? false,
+        provenanceIds: event.provenanceIds ?? [],
         ancestors: [],
         descendants: [],
       });
@@ -308,6 +335,7 @@ export class InMemoryDbClient implements DbClient {
         createdAt: event.createdAt,
         updatedAt: event.updatedAt,
         dryRun: event.dryRun,
+        provenanceIds: event.provenanceIds,
         ancestors: [],
         descendants: [],
       };

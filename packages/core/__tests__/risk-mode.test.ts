@@ -424,7 +424,7 @@ describe("Risk Mode - Guarded vs Autonomous", () => {
       const result = await action.execute({ value: "test" }, makeCtx(), dbClient, permissionEngine, "autonomous");
       
       // Should execute immediately, not return delayed
-      expect(result).toEqual({ result: { success: true }, eventId: expect.any(String) });
+      expect(result).toEqual({ result: { success: true }, eventId: expect.any(String), provenanceIds: expect.any(Array) });
       expect(handler).toHaveBeenCalledTimes(1);
     });
 
@@ -448,7 +448,7 @@ describe("Risk Mode - Guarded vs Autonomous", () => {
       const result = await action.execute({ value: "test" }, makeCtx(), dbClient, permissionEngine, "autonomous");
       
       // Should execute immediately
-      expect(result).toEqual({ result: { success: true }, eventId: expect.any(String) });
+      expect(result).toEqual({ result: { success: true }, eventId: expect.any(String), provenanceIds: expect.any(Array) });
       expect(handler).toHaveBeenCalledTimes(1);
     });
   });
@@ -498,7 +498,7 @@ describe("Risk Mode - Guarded vs Autonomous", () => {
       // Execute with explicit guarded mode
       const result = await action.execute({ value: "test" }, makeCtx(), dbClient, permissionEngine, "guarded");
       
-      expect(result).toEqual({ result: { success: true }, eventId: expect.any(String) });
+      expect(result).toEqual({ result: { success: true }, eventId: expect.any(String), provenanceIds: expect.any(Array) });
       expect(handler).toHaveBeenCalledTimes(1);
     });
   });

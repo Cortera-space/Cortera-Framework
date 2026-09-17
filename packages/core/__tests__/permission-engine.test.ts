@@ -13,6 +13,7 @@ import {
   type InsertActionEvent,
   type InsertActionApproval,
   type ActionApproval,
+  type DataProvenance,
 } from "../src/index";
 
 const makeCtx = (overrides?: Partial<ActionContext>): ActionContext => ({
@@ -26,6 +27,7 @@ class MockDbClient implements DbClient {
   public approvals: InsertActionApproval[] = [];
   private idMap = new Map<string, InsertActionEvent>();
   private approvalIdMap = new Map<string, InsertActionApproval>();
+  private provenances: (DataProvenance & { id: string })[] = [];
 
   async insertActionEvent(event: InsertActionEvent): Promise<{ id: string }> {
     const id = `event-${this.events.length + 1}`;
@@ -114,6 +116,20 @@ class MockDbClient implements DbClient {
   async findEventById(_id: string): Promise<any | null> { return null; }
   async findActorState(_actorId: string, _workspaceId: string): Promise<any | null> { return null; }
   async upsertActorState(_state: any): Promise<void> {}
+
+  async insertDataProvenance(provenance: any): Promise<{ id: string }> {
+    const id = `prov-${this.provenances.length + 1}`;
+    this.provenances.push({ ...provenance, id, createdAt: new Date() });
+    return { id };
+  }
+
+  async findDataProvenanceByIds(ids: string[]): Promise<DataProvenance[]> {
+    return this.provenances.filter((p) => ids.includes(p.id));
+  }
+
+  async findDataProvenanceByContentHash(_contentHash: string, _workspaceId: string): Promise<DataProvenance | null> {
+    return null;
+  }
 }
 
 describe("PermissionEngine", () => {

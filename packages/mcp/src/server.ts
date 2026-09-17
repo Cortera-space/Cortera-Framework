@@ -6,6 +6,8 @@ import type {
   Actor,
   DefinedAction,
   ActionExecutionResult,
+  ActionContext,
+  TrustLabel,
 } from "@tera/core";
 import {
   ActionValidationError,
@@ -26,6 +28,11 @@ export interface McpActionServerOptions {
 export interface McpActionServer {
   createHandler(): ReturnType<typeof createMcpHandler>;
   factory: (ctx: McpRequestContext) => Promise<McpServer>;
+}
+
+export interface McpToolCallInput {
+  [key: string]: unknown;
+  _provenance?: Record<string, TrustLabel>;
 }
 
 function toStandardSchema(zodSchema: any) {
@@ -93,14 +100,19 @@ export function createMcpActionServer(options: McpActionServerOptions): McpActio
             };
           }
 
-          const actionContext = {
+          // Extract provenance from input if present
+          const inputWithProvenance = rawInput as McpToolCallInput;
+          const { _provenance, ...actualInput } = inputWithProvenance;
+
+          const actionContext: ActionContext = {
             actor,
             workspaceId: defaultWorkspaceId,
+            inputProvenance: _provenance,
           };
 
           try {
             const result = await action.execute(
-              rawInput,
+              actualInput,
               actionContext,
               dbClient,
               permissionEngine
