@@ -1,0 +1,131 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Invoice API (tRPC)",
+    "version": "1.0.0",
+    "description": "API for creating invoices using tRPC"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000",
+      "description": "Development server"
+    }
+  ],
+  "paths": {
+    "/api/trpc/createInvoice": {
+      "post": {
+        "operationId": "createInvoice",
+        "summary": "Create a new invoice via tRPC",
+        "description": "Creates a new invoice for a customer and writes an audit log entry",
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["customerId", "amount", "dueDate"],
+                "properties": {
+                  "customerId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Unique identifier for the customer"
+                  },
+                  "amount": {
+                    "type": "number",
+                    "minimum": 0.01,
+                    "description": "Invoice amount (must be positive)"
+                  },
+                  "dueDate": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "Due date in ISO 8601 format"
+                  },
+                  "notes": {
+                    "type": "string",
+                    "description": "Optional notes about this invoice"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Invoice created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "result": {
+                      "type": "object",
+                      "properties": {
+                        "id": { "type": "string", "example": "inv-1-1234567890" },
+                        "customerId": { "type": "string", "example": "cust-123" },
+                        "amount": { "type": "number", "example": 99.99 },
+                        "dueDate": { "type": "string", "format": "date-time", "example": "2024-12-31T23:59:59.000Z" },
+                        "notes": { "type": "string", "example": "Payment due within 30 days" },
+                        "createdAt": { "type": "string", "format": "date-time", "example": "2024-11-01T10:30:00.000Z" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": { "type": "string", "example": "Validation failed" },
+                    "details": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "path": { "type": "array", "items": { "type": "string" }, "example": ["amount"] },
+                          "message": { "type": "string", "example": "Amount must be a positive number" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": { "type": "string", "example": "actor lacks permission: invoices.create" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Authorization",
+        "description": "API key in format: Bearer sk-agent-XXX"
+      }
+    }
+  }
+}
