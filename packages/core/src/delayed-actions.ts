@@ -10,6 +10,7 @@ import type {
 import { ActionContainmentError, ActionPermissionError, ActionValidationError } from "./types";
 import { checkActorContainment, checkBlastRadius } from "./containment";
 import { recordEvent, updateEvent } from "./event-log";
+import { computeOutputProvenance, resolveInputProvenance, recordOutputProvenance } from "./provenance";
 
 export async function cancelDelayedAction(
   dbClient: DbClient,
@@ -121,6 +122,11 @@ export async function processPendingDelayedActions(
       continue;
     }
 
+    // Resolve input provenance for output computation
+    let inputProvenance: Map<string, "trusted" | "untrusted-external"> = new Map();
+    const rawInputObj = pending.input as Record<string, unknown> ?? {};
+    inputProvenance = await resolveInputProvenance(dbClient, pending.actionEventId, rawInputObj);
+
     try {
       const handlerResult = await action.handler(result.data, { ...ctx, eventId: pending.actionEventId });
 
@@ -129,6 +135,10 @@ export async function processPendingDelayedActions(
         durationMs: 0,
         permissionResult: "allow",
       });
+
+      // Compute and record output provenance
+      const outputLabel = computeOutputProvenance(inputProvenance, action.sanitizes ?? false);
+      await recordOutputProvenance(dbClient, pending.actionEventId, outputLabel, ctx.parentEventId ?? null);
 
       await dbClient.updatePendingDelayedAction(pending.id, { status: "executed" });
       processed++;

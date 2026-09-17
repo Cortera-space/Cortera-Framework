@@ -13,6 +13,7 @@ import type {
   PermissionEngine,
 } from "./types";
 import { checkActorContainment, checkBlastRadius } from "./containment";
+import { computeOutputProvenance, resolveInputProvenance, recordOutputProvenance } from "./provenance";
 
 export interface WorkspaceContact {
   channel: "email" | "sms";
@@ -234,6 +235,12 @@ export async function confirmIrreversibleConfirmation(
   });
 
   const startedAt = new Date();
+  
+  // Resolve input provenance for output computation
+  let inputProvenance: Map<string, "trusted" | "untrusted-external"> = new Map();
+  const rawInputObj = confirmation.input as Record<string, unknown> ?? {};
+  inputProvenance = await resolveInputProvenance(dbClient, confirmation.actionEventId, rawInputObj);
+
   try {
     // Directly call the handler to avoid re-entering the execute flow
     const handlerResult = await action.handler(confirmation.input, ctx);
@@ -244,6 +251,10 @@ export async function confirmIrreversibleConfirmation(
       output: handlerResult,
       durationMs,
     });
+
+    // Compute and record output provenance
+    const outputLabel = computeOutputProvenance(inputProvenance, action.sanitizes ?? false);
+    await recordOutputProvenance(dbClient, confirmation.actionEventId, outputLabel, ctx.parentEventId ?? null);
 
     return { result: handlerResult, eventId: confirmation.actionEventId };
   } catch (error) {

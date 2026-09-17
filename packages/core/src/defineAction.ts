@@ -19,11 +19,12 @@ import {
   type DryRunResult,
   type PermissionEngine,
   type ExecuteOptions,
+  type ActionConfig,
 } from "./types";
-import type { ActionConfig } from "./types";
 import { recordEvent, updateEvent } from "./event-log";
 import { checkActorContainment, checkBlastRadius } from "./containment";
 import { requestIrreversibleConfirmation } from "./irreversible-confirmation";
+import { computeOutputProvenance, resolveInputProvenance, recordOutputProvenance } from "./provenance";
 
 async function runSchedulingChecks(
   dbClient: DbClient | undefined,
@@ -213,6 +214,13 @@ async function executeImmediate(
 
   let eventId: string | undefined;
 
+  // Resolve input provenance from parent event
+  let inputProvenance: Map<string, "trusted" | "untrusted-external"> = new Map();
+  if (dbClient) {
+    const rawInputObj = rawInput as Record<string, unknown> ?? {};
+    inputProvenance = await resolveInputProvenance(dbClient, ctx.parentEventId, rawInputObj);
+  }
+
   if (dbClient) {
     const insertEvent: InsertActionEvent = {
       actionName: config.name,
@@ -251,6 +259,10 @@ async function executeImmediate(
         output: handlerResult,
         durationMs,
       });
+
+      // Compute and record output provenance
+      const outputLabel = computeOutputProvenance(inputProvenance, config.sanitizes ?? false);
+      await recordOutputProvenance(dbClient, eventId, outputLabel, ctx.parentEventId ?? null);
     }
 
     return { result: handlerResult, eventId: eventId ?? "" };
@@ -383,6 +395,13 @@ async function executeDelayed(
       `Invalid input for action "${config.name}"`,
       result.error.issues
     );
+  }
+
+  // Resolve input provenance from parent event
+  let inputProvenance: Map<string, "trusted" | "untrusted-external"> = new Map();
+  if (dbClient) {
+    const rawInputObj = rawInput as Record<string, unknown> ?? {};
+    inputProvenance = await resolveInputProvenance(dbClient, ctx.parentEventId, rawInputObj);
   }
 
   // Create action_events row with permission_result "delayed"
@@ -536,6 +555,13 @@ async function executeIrreversible(
       `Invalid input for action "${config.name}"`,
       result.error.issues
     );
+  }
+
+  // Resolve input provenance from parent event
+  let inputProvenance: Map<string, "trusted" | "untrusted-external"> = new Map();
+  if (dbClient) {
+    const rawInputObj = rawInput as Record<string, unknown> ?? {};
+    inputProvenance = await resolveInputProvenance(dbClient, ctx.parentEventId, rawInputObj);
   }
 
   // Create action_events row with permission_result "pending_confirmation"

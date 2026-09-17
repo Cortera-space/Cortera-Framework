@@ -20,6 +20,11 @@ import type {
   InsertIrreversibleConfirmation,
   IrreversibleConfirmation,
   PendingIrreversibleConfirmationWithEvent,
+  DataProvenance,
+  InsertDataProvenance,
+  ProvenanceTrace,
+  ProvenanceTraceEntry,
+  ProvenanceLabel,
 } from "@tera/core";
 
 export type PostgresDbClientOptions = {
@@ -899,6 +904,105 @@ export class PostgresDbClient implements DbClient {
         },
       };
     });
+  }
+
+  async insertDataProvenance(provenance: InsertDataProvenance): Promise<{ id: string }> {
+    const { rows } = await this.pool.query(
+      `INSERT INTO data_provenance (event_id, field_path, label, source_event_id)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id`,
+      [provenance.eventId, provenance.fieldPath, provenance.label, provenance.sourceEventId]
+    );
+    return { id: rows[0].id };
+  }
+
+  async findDataProvenanceByEventId(eventId: string): Promise<DataProvenance[]> {
+    const { rows } = await this.pool.query(
+      `SELECT id, event_id, field_path, label, source_event_id, created_at
+       FROM data_provenance
+       WHERE event_id = $1
+       ORDER BY created_at ASC`,
+      [eventId]
+    );
+    return rows.map((row) => ({
+      id: row.id,
+      eventId: row.event_id,
+      fieldPath: row.field_path,
+      label: row.label as ProvenanceLabel,
+      sourceEventId: row.source_event_id,
+      createdAt: new Date(row.created_at),
+    }));
+  }
+
+  async getProvenanceTrace(eventId: string): Promise<ProvenanceTrace | null> {
+    // First check if the event exists
+    const eventCheck = await this.pool.query(
+      `SELECT id FROM action_events WHERE id = $1`,
+      [eventId]
+    );
+    if (eventCheck.rows.length === 0) {
+      return null;
+    }
+
+    // Get the output provenance for this event
+    const outputProvenanceRows = await this.pool.query(
+      `SELECT id, event_id, field_path, label, source_event_id, created_at
+       FROM data_provenance
+       WHERE event_id = $1 AND field_path = 'output'
+       ORDER BY created_at ASC`,
+      [eventId]
+    );
+
+    const outputProvenance = outputProvenanceRows.rows.map((row) => ({
+      id: row.id,
+      eventId: row.event_id,
+      fieldPath: row.field_path,
+      label: row.label as ProvenanceLabel,
+      sourceEventId: row.source_event_id,
+      createdAt: new Date(row.created_at),
+    }));
+
+    const outputLabel = outputProvenance[0]?.label ?? "trusted";
+
+    // Recursively build the trace by following source_event_id chain
+    const trace: ProvenanceTraceEntry[] = [];
+    await this.buildProvenanceTrace(eventId, trace);
+
+    return {
+      eventId,
+      outputLabel,
+      trace,
+    };
+  }
+
+  private async buildProvenanceTrace(eventId: string, trace: ProvenanceTraceEntry[]): Promise<void> {
+    // Get all provenance records for this event
+    const provenanceRows = await this.pool.query(
+      `SELECT dp.id, dp.event_id, dp.field_path, dp.label, dp.source_event_id, dp.created_at,
+              ae.action_name
+       FROM data_provenance dp
+       JOIN action_events ae ON dp.event_id = ae.id
+       WHERE dp.event_id = $1
+       ORDER BY dp.created_at ASC`,
+      [eventId]
+    );
+
+    for (const row of provenanceRows.rows) {
+      const entry: ProvenanceTraceEntry = {
+        eventId: row.event_id,
+        actionName: row.action_name,
+        fieldPath: row.field_path,
+        label: row.label as ProvenanceLabel,
+        sourceEventId: row.source_event_id,
+        isSanitized: row.label === "trusted" && row.source_event_id !== null,
+      };
+      trace.push(entry);
+
+      // Always follow the chain if there's a source event to show full history
+      if (row.source_event_id) {
+        await this.buildProvenanceTrace(row.source_event_id, trace);
+      }
+    }
   }
 
   async close(): Promise<void> {

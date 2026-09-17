@@ -106,6 +106,10 @@ class MockDbClient implements DbClient {
   getEventId(event: InsertActionEvent & { _id?: string }) {
     return event._id;
   }
+
+  async insertDataProvenance(_provenance: any): Promise<{ id: string }> { return { id: "prov-1" }; }
+  async findDataProvenanceByEventId(_eventId: string): Promise<any[]> { return []; }
+  async getProvenanceTrace(_eventId: string): Promise<any | null> { return null; }
 }
 
 describe("blast-radius", () => {

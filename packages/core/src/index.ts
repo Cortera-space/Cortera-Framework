@@ -28,4 +28,9 @@ export {
   rollbackAction,
   ActionRollbackError,
 } from "./rollback";
+export {
+  computeOutputProvenance,
+  resolveInputProvenance,
+  recordOutputProvenance,
+} from "./provenance";
 export { InMemoryDbClient } from "./test-utils";

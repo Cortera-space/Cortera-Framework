@@ -173,6 +173,7 @@ export interface ActionConfig<TInput extends z.ZodTypeAny, TOutput = unknown> {
   delayWindowMs?: number;
   confirmationTtlMs?: number;
   rollback?: RollbackFn<TOutput>;
+  sanitizes?: boolean;
 }
 
 export interface ActionResult<T = unknown> {
@@ -197,6 +198,7 @@ export interface DefinedAction<TInput extends z.ZodTypeAny, TOutput = unknown> {
   delayWindowMs?: number;
   confirmationTtlMs?: number;
   rollback?: RollbackFn<TOutput>;
+  sanitizes?: boolean;
   handler: (input: z.infer<TInput>, ctx: ActionContext) => Promise<TOutput>;
   execute(
     rawInput: unknown,
@@ -226,6 +228,32 @@ export interface ActionEvent<TInput = unknown, TOutput = unknown> {
 export interface ActionEventWithChain extends ActionEvent {
   ancestors: ActionEventWithChain[];
   descendants: ActionEventWithChain[];
+}
+
+export type ProvenanceLabel = "trusted" | "untrusted-external";
+
+export interface DataProvenance {
+  id: string;
+  eventId: string;
+  fieldPath: string;
+  label: ProvenanceLabel;
+  sourceEventId: string | null;
+  createdAt: Date;
+}
+
+export interface ProvenanceTraceEntry {
+  eventId: string;
+  actionName: string;
+  fieldPath: string;
+  label: ProvenanceLabel;
+  sourceEventId: string | null;
+  isSanitized: boolean;
+}
+
+export interface ProvenanceTrace {
+  eventId: string;
+  outputLabel: ProvenanceLabel;
+  trace: ProvenanceTraceEntry[];
 }
 
 export interface ListEventsFilters {
@@ -411,4 +439,15 @@ export interface DbClient {
   findPendingIrreversibleConfirmations(): Promise<IrreversibleConfirmation[]>;
   findAllPendingIrreversibleConfirmations(): Promise<IrreversibleConfirmation[]>;
   listPendingIrreversibleConfirmations(workspaceId: string): Promise<PendingIrreversibleConfirmationWithEvent[]>;
+
+  insertDataProvenance(provenance: InsertDataProvenance): Promise<{ id: string }>;
+  findDataProvenanceByEventId(eventId: string): Promise<DataProvenance[]>;
+  getProvenanceTrace(eventId: string): Promise<ProvenanceTrace | null>;
+}
+
+export interface InsertDataProvenance {
+  eventId: string;
+  fieldPath: string;
+  label: ProvenanceLabel;
+  sourceEventId: string | null;
 }

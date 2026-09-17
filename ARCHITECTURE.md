@@ -287,3 +287,69 @@ route (`POST /actions/[actionName]`).
 An optional `dryRun` boolean is automatically injected into every
 generated tool's input schema (framework-level capability, not
 per-Action).
+
+---
+
+## 12. Trust Propagation & Data Provenance (Stage 14)
+
+### Trust Labels
+
+Every piece of data flowing through the system carries a trust label:
+- **`trusted`** — data originating from authenticated, authorized actors within the system
+- **`untrusted-external`** — data originating from external tools, APIs, or unverified sources
+
+### ActionConfig Extension
+
+`ActionConfig` has an optional `sanitizes?: boolean` field. When `true`, this Action's output is treated as `trusted` regardless of input taint, because the Action author asserts the handler genuinely validates/cleans the data (e.g., an Action whose entire job is validating an external API response against a strict allowlist). Default is `false` — taint propagates through by default, sanitization is opt-in and the author is asserting a real guarantee.
+
+### Provenance Propagation Rules
+
+Trust labels propagate through causal chains: an Action's output is labeled `untrusted-external` if any contributing input was `untrusted-external` — taint is contagious downstream, never automatically cleaned by passing through a handler. An Action author may explicitly mark specific outputs as re-trusted via a `sanitizes: true` declaration ONLY when the handler performs a genuine validation/sanitization step — this must be an explicit, deliberate opt-in per Action, never a default.
+
+**Propagation Algorithm:**
+1. If `actionConfig.sanitizes === true`: output is `trusted` regardless of input labels
+2. Otherwise: if ANY input field's provenance is `untrusted-external`, the output is `untrusted-external`
+3. Only if ALL inputs are `trusted` is the output `trusted`
+
+### Data Provenance Storage
+
+Provenance is recorded in a `data_provenance` table linked to `action_events`:
+
+```sql
+CREATE TABLE data_provenance (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id uuid NOT NULL REFERENCES action_events(id) ON DELETE CASCADE,
+  field_path text NOT NULL,           -- e.g., "output", "input.fieldName"
+  label text NOT NULL CHECK (label IN ('trusted', 'untrusted-external')),
+  source_event_id uuid REFERENCES action_events(id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+```
+
+Each Action execution records one `data_provenance` row for its **output** (field_path = "output"), capturing:
+- The computed trust label
+- The `source_event_id` (the parent event that provided the input, if any)
+
+### Automatic Input Resolution
+
+When a downstream Action calls a prior Action's output as its input (via the existing `ctx.withParent()` chaining mechanism), the input field's provenance is **automatically resolved** from the parent event's output-provenance record — no manual redeclaration required by the caller. This makes propagation automatic across multi-hop chains.
+
+### Provenance Trace Query
+
+`getProvenanceTrace(eventId)` returns the full chain of provenance decisions leading to a given event:
+- Which upstream event(s) contributed untrusted data
+- Whether any intermediate Action sanitized the data (`isSanitized: true`)
+- The complete causal chain from source to target
+
+This is inspectable/debuggable the same way the action chain itself is inspectable via `getEventWithChain`.
+
+### Sanitization Does Not Rewrite History
+
+When an Action with `sanitizes: true` cleans taint:
+- Its output becomes `trusted` for downstream propagation
+- **Upstream provenance records remain unchanged** — the original `untrusted-external` source is still recorded in history
+- `getProvenanceTrace` shows both the original taint and the sanitization point
+
+### Enforcement (Stage 14c)
+
+This stage builds propagation logic only. Enforcement — forcing confirmation on untrusted-rooted calls — is Stage 14c.
