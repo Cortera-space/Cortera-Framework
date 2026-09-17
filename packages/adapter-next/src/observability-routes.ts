@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { DbClient, Actor } from "@tera/core";
-import { resolveActorFromRequest, type ApiKeyMapping } from "@tera/adapter-next";
 
 export interface ObservabilityRouteOptions {
   dbClient: DbClient;
@@ -27,6 +26,7 @@ export function createEventsRouteHandler(options: ObservabilityRouteOptions) {
       actorType: url.searchParams.get("actorType") || undefined,
       actionName: url.searchParams.get("actionName") || undefined,
       permissionResult: url.searchParams.get("permissionResult") || undefined,
+      dryRun: url.searchParams.get("dryRun") || undefined,
     };
     const from = url.searchParams.get("from");
     const to = url.searchParams.get("to");
@@ -38,6 +38,7 @@ export function createEventsRouteHandler(options: ObservabilityRouteOptions) {
         actorType: filters.actorType as Actor["actorType"] | undefined,
         actionName: filters.actionName,
         permissionResult: filters.permissionResult as "allow" | "deny" | "approval_required" | undefined,
+        dryRun: filters.dryRun ? filters.dryRun === "true" : undefined,
         from: from ? new Date(from) : undefined,
         to: to ? new Date(to) : undefined,
       },
@@ -66,7 +67,9 @@ export function createEventChainRouteHandler(options: ObservabilityRouteOptions)
     }
 
     const { eventId } = await context.params;
-    const chain = await dbClient.getEventWithChain(eventId);
+    const url = new URL(request.url);
+    const includeDryRun = url.searchParams.get("dryRun") === "true";
+    const chain = await dbClient.getEventWithChain(eventId, includeDryRun);
 
     if (!chain) {
       return NextResponse.json(

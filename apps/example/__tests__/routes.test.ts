@@ -1,10 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 import {
-  registry,
   dbClient,
-  permissionEngine,
-  apiKeyMapping,
   defaultWorkspaceId,
 } from "@/lib/registry";
 
@@ -602,7 +599,6 @@ describe("POST /app/actions/approvals/[approvalId]", () => {
     });
 
     const response = await POST(request, { params: { approvalId: "unknown" } });
-    const json = await response.json();
 
     expect(response.status).toBe(404);
   });
@@ -684,7 +680,6 @@ describe("POST /app/actors/[actorId]/review", () => {
     );
 
     const response = await POST(request, { params: { actorId: "nonexistent" } });
-    const json = await response.json();
 
     expect(response.status).toBe(404);
   });

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { DbClient, Actor, resolveApproval } from "@tera/core";
+import { DbClient, Actor, rollbackAction, ActionRollbackError } from "@tera/core";
 
-export interface ApprovalRouteOptions {
+export interface RollbackRouteOptions {
   dbClient: DbClient;
   registry: {
     get(name: string): {
@@ -13,17 +13,16 @@ export interface ApprovalRouteOptions {
     } | undefined;
   };
   resolveActor: (request: NextRequest) => Promise<Actor | null>;
-  defaultWorkspaceId: string;
 }
 
-export function createApprovalRouteHandler(options: ApprovalRouteOptions) {
+export function createRollbackRouteHandler(options: RollbackRouteOptions) {
   const { dbClient, registry, resolveActor } = options;
 
   return async (
     request: NextRequest,
-    context: { params: { approvalId: string } }
+    context: { params: { eventId: string } }
   ): Promise<NextResponse> => {
-    const { approvalId } = await context.params;
+    const { eventId } = await context.params;
 
     const actor = await resolveActor(request);
     if (!actor) {
@@ -33,50 +32,36 @@ export function createApprovalRouteHandler(options: ApprovalRouteOptions) {
       );
     }
 
-    let body: { decision?: "approved" | "rejected" };
     try {
-      body = await request.json();
-    } catch {
-      return NextResponse.json(
-        { error: "Invalid JSON body" },
-        { status: 400 }
-      );
-    }
-
-    const decision = body.decision;
-    if (decision !== "approved" && decision !== "rejected") {
-      return NextResponse.json(
-        { error: "decision must be 'approved' or 'rejected'" },
-        { status: 400 }
-      );
-    }
-
-    try {
-      await resolveApproval(
-        approvalId,
-        decision,
-        actor.actorId,
-        dbClient,
-        registry
-      );
-      return NextResponse.json({ status: "ok" });
+      const result = await rollbackAction(eventId, actor.actorId, dbClient, registry);
+      return NextResponse.json({ status: "ok", result: result.result, rollbackEventId: result.eventId });
     } catch (error) {
-      if (error instanceof Error) {
+      if (error instanceof ActionRollbackError) {
+        if (error.message.includes("does not have a rollback function")) {
+          return NextResponse.json(
+            { error: error.message },
+            { status: 400 }
+          );
+        }
         if (error.message.includes("not found")) {
           return NextResponse.json(
             { error: error.message },
             { status: 404 }
           );
         }
-        if (error.message.includes("not pending") || error.message.includes("expired")) {
+        if (error.message.includes("not executed successfully")) {
           return NextResponse.json(
             { error: error.message },
             { status: 409 }
           );
         }
+        return NextResponse.json(
+          { error: error.message },
+          { status: 500 }
+        );
       }
 
-      console.error("Unhandled approval resolution error:", error);
+      console.error("Unhandled rollback error:", error);
       return NextResponse.json(
         { error: "Internal server error" },
         { status: 500 }

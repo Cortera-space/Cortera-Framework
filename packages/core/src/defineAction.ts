@@ -3,6 +3,7 @@ import {
   ActionValidationError,
   ActionPermissionError,
   ActionPendingApprovalError,
+  ActionPendingIrreversibleConfirmationError,
   ActionContainmentError,
   type InsertActionEvent,
   type InsertActionApproval,
@@ -10,10 +11,19 @@ import {
   type RiskMode,
   type DelayedExecutionResult,
   type InsertPendingDelayedAction,
+  type DbClient,
+  type ActionContext,
+  type DefinedAction,
+  type ActionResult,
+  type ActionExecutionResult,
+  type DryRunResult,
+  type PermissionEngine,
+  type ExecuteOptions,
 } from "./types";
-import type { ActionConfig, DefinedAction, ActionContext, DbClient, PermissionEngine, ActionResult } from "./types";
+import type { ActionConfig } from "./types";
 import { recordEvent, updateEvent } from "./event-log";
 import { checkActorContainment, checkBlastRadius } from "./containment";
+import { requestIrreversibleConfirmation } from "./irreversible-confirmation";
 
 async function runSchedulingChecks(
   dbClient: DbClient | undefined,
@@ -83,8 +93,9 @@ async function executeImmediate(
   dbClient: DbClient | undefined,
   permissionEngine: PermissionEngine | undefined,
   config: ActionConfig<any>,
-  startedAt: Date
-): Promise<ActionResult<unknown>> {
+  startedAt: Date,
+  dryRun: boolean
+): Promise<ActionExecutionResult<unknown>> {
   const permissionResult = await runFullChecks(dbClient, ctx, { name: config.name, permission: config.permission, blastRadius: config.blastRadius } as DefinedAction<any>, permissionEngine);
 
   if (permissionResult === "deny") {
@@ -103,6 +114,7 @@ async function executeImmediate(
         durationMs: null,
         workspaceId: ctx.workspaceId,
         blastRadius: config.blastRadius ?? null,
+        dryRun,
       };
       await recordEvent(dbClient, insertEvent);
     }
@@ -137,6 +149,7 @@ async function executeImmediate(
       durationMs: null,
       workspaceId: ctx.workspaceId,
       blastRadius: config.blastRadius ?? null,
+      dryRun,
     };
     const { id: eventId } = await recordEvent(dbClient, insertEvent);
 
@@ -187,6 +200,7 @@ async function executeImmediate(
         durationMs: null,
         workspaceId: ctx.workspaceId,
         blastRadius: config.blastRadius ?? null,
+        dryRun,
       };
       await recordEvent(dbClient, insertEvent);
     }
@@ -214,9 +228,14 @@ async function executeImmediate(
       durationMs: null,
       workspaceId: ctx.workspaceId,
       blastRadius: config.blastRadius ?? null,
+      dryRun,
     };
     const { id } = await recordEvent(dbClient, insertEvent);
     eventId = id;
+  }
+
+  if (dryRun) {
+    return { wouldSucceed: true as const, eventId };
   }
 
   try {
@@ -260,7 +279,7 @@ async function executeDelayed(
   permissionEngine: PermissionEngine | undefined,
   config: ActionConfig<any>,
   startedAt: Date
-): Promise<ActionResult<unknown> | DelayedExecutionResult> {
+): Promise<ActionExecutionResult<unknown> | DelayedExecutionResult> {
   if (!dbClient) {
     throw new Error(`Delayed execution requires a dbClient: ${config.name}`);
   }
@@ -413,9 +432,7 @@ async function executeIrreversible(
   permissionEngine: PermissionEngine | undefined,
   config: ActionConfig<any>,
   startedAt: Date
-): Promise<ActionResult<unknown> | DelayedExecutionResult> {
-  // For now, treat as delayed with a special status - full implementation
-  // will be in the OUT-OF-BAND CONFIRMATION feature
+): Promise<ActionExecutionResult<unknown> | DelayedExecutionResult> {
   if (!dbClient) {
     throw new Error(`Irreversible execution requires a dbClient: ${config.name}`);
   }
@@ -537,31 +554,35 @@ async function executeIrreversible(
     workspaceId: ctx.workspaceId,
     blastRadius: config.blastRadius ?? null,
   };
-  const { id: eventId } = await recordEvent(dbClient, insertEvent);
+  const { id: actionEventId } = await recordEvent(dbClient, insertEvent);
 
-  // For now, just return a delayed-like response with special status
-  // The OUT-OF-BAND CONFIRMATION feature will implement the actual confirmation flow
-  const pendingAction: InsertPendingDelayedAction = {
-    actionEventId: eventId,
-    actionName: config.name,
-    input: result.data,
-    actorId: ctx.actor.actorId,
-    workspaceId: ctx.workspaceId,
-    scheduledRunAt: new Date(Date.now() + 86400000), // Far future - will be triggered by confirmation
-    status: "pending",
-  };
-  const { id: pendingId } = await dbClient.insertPendingDelayedAction(pendingAction);
+  const contactResolver = (globalThis as any).__TERA_CONTACT_RESOLVER__;
+  if (!contactResolver) {
+    throw new Error("Workspace contact resolver not configured for irreversible actions");
+  }
 
-  return {
-    status: "delayed",
-    pendingId,
-    scheduledRunAt: pendingAction.scheduledRunAt,
-  };
+  const confirmationTtlMs = config.confirmationTtlMs ?? 15 * 60 * 1000;
+
+  const confirmationResult = await requestIrreversibleConfirmation(
+    actionEventId,
+    { name: config.name, permission: config.permission, blastRadius: config.blastRadius } as DefinedAction<any>,
+    ctx.actor,
+    rawInput,
+    ctx.workspaceId,
+    dbClient,
+    contactResolver,
+    confirmationTtlMs
+  );
+
+  throw new ActionPendingIrreversibleConfirmationError(
+    `Irreversible action requires confirmation (id: ${confirmationResult.confirmationId})`,
+    confirmationResult.confirmationId
+  );
 }
 
-export function defineAction<TInput extends z.ZodTypeAny>(
-  config: ActionConfig<TInput>
-): DefinedAction<TInput> {
+export function defineAction<TInput extends z.ZodTypeAny, TOutput = unknown>(
+  config: ActionConfig<TInput, TOutput>
+): DefinedAction<TInput, TOutput> {
   if (!config.description || config.description.trim() === "") {
     throw new Error(`Action "${config.name}" must have a non-empty description`);
   }
@@ -572,81 +593,57 @@ export function defineAction<TInput extends z.ZodTypeAny>(
     );
   }
 
-  return {
+  const riskTier = config.riskTier ?? "standard";
+  const confirmationTtlMs = config.confirmationTtlMs ?? 15 * 60 * 1000;
+
+  const execute = async (
+    rawInput: unknown,
+    ctx: ActionContext,
+    dbClient?: DbClient,
+    permissionEngine?: PermissionEngine,
+    options?: ExecuteOptions
+  ): Promise<ActionExecutionResult<unknown>> => {
+    const dryRun = options?.dryRun ?? false;
+    const startedAt = new Date();
+
+    // Early exit for autonomous mode - skip all tiering
+    const riskMode = (config as any).riskMode ?? "guarded";
+    if (riskMode === "autonomous") {
+      return executeImmediate(rawInput, ctx, dbClient, permissionEngine, config, startedAt, dryRun);
+    }
+
+    // Guarded mode - apply tiering
+    const tier = riskTier === "instant" ? "standard" : riskTier;
+
+    if (tier === "standard") {
+      return executeImmediate(rawInput, ctx, dbClient, permissionEngine, config, startedAt, dryRun);
+    }
+
+    if (tier === "delayed") {
+      return executeDelayed(rawInput, ctx, dbClient, permissionEngine, config, startedAt);
+    }
+
+    if (tier === "irreversible") {
+      return executeIrreversible(rawInput, ctx, dbClient, permissionEngine, config, startedAt);
+    }
+
+    // Fallback - should never reach here
+    return executeImmediate(rawInput, ctx, dbClient, permissionEngine, config, startedAt, dryRun);
+  };
+
+  const self: DefinedAction<TInput, TOutput> = {
     name: config.name,
     description: config.description,
     permission: config.permission,
     input: config.inputSchema,
     blastRadius: config.blastRadius,
-    riskTier: config.riskTier,
+    riskTier,
+    confirmationTtlMs,
     delayWindowMs: config.delayWindowMs,
+    rollback: config.rollback,
     handler: config.handler,
-    async execute(
-      rawInput: unknown,
-      ctx: ActionContext,
-      dbClient?: DbClient,
-      permissionEngine?: PermissionEngine,
-      riskMode: RiskMode = "guarded"
-    ): Promise<ActionResult<unknown> | DelayedExecutionResult> {
-      const startedAt = new Date();
-
-      // Early exit for autonomous mode - skip all tiering
-      if (riskMode === "autonomous") {
-        return executeImmediate(
-          rawInput,
-          ctx,
-          dbClient,
-          permissionEngine,
-          config,
-          startedAt
-        );
-      }
-
-      // Guarded mode - apply tiering
-      const riskTier = config.riskTier ?? "instant";
-
-      if (riskTier === "instant") {
-        return executeImmediate(
-          rawInput,
-          ctx,
-          dbClient,
-          permissionEngine,
-          config,
-          startedAt
-        );
-      }
-
-      if (riskTier === "delayed") {
-        return executeDelayed(
-          rawInput,
-          ctx,
-          dbClient,
-          permissionEngine,
-          config,
-          startedAt
-        );
-      }
-
-      if (riskTier === "irreversible") {
-        return executeIrreversible(
-          rawInput,
-          ctx,
-          dbClient,
-          permissionEngine,
-          config,
-          startedAt
-        );
-      }
-
-      // Fallback - should never reach here
-      return executeImmediate(
-        rawInput,
-        ctx,
-        dbClient,
-        permissionEngine,
-        config,
-        startedAt
-      );
-    },
+    execute,
   };
+
+  return self;
 }
