@@ -9,6 +9,7 @@ import {
   ActionContainmentError,
   ActionPendingApprovalError,
   DefinedAction,
+  DryRunResult,
 } from "@tera/core";
 
 export interface CreateActionHandlerOptions {
@@ -63,14 +64,21 @@ export function createActionHandler(options: CreateActionHandlerOptions) {
       parentEventId: request.headers.get("x-tera-parent-event-id") || undefined,
     };
 
+    const url = new URL(request.url);
+    const dryRun = url.searchParams.get("dryRun") === "true";
+
     try {
       const result = await (action as DefinedAction<any>).execute(
         rawInput,
         actionContext,
         dbClient,
-        permissionEngine
+        permissionEngine,
+        { dryRun }
       );
-      return NextResponse.json({ result: result.result });
+      if ("wouldSucceed" in result) {
+        return NextResponse.json({ wouldSucceed: true, eventId: result.eventId ?? null });
+      }
+      return NextResponse.json({ result: result.result, eventId: result.eventId });
     } catch (error) {
       if (error instanceof ActionValidationError) {
         return NextResponse.json(
