@@ -5,6 +5,7 @@ import type {
   PermissionEngine,
   Actor,
   DefinedAction,
+  ActionExecutionResult,
 } from "@tera/core";
 import {
   ActionValidationError,
@@ -104,11 +105,17 @@ export function createMcpActionServer(options: McpActionServerOptions): McpActio
               dbClient,
               permissionEngine
             );
+            let resultValue: unknown;
+            if ("wouldSucceed" in result) {
+              resultValue = { wouldSucceed: true };
+            } else {
+              resultValue = result.result;
+            }
             return {
               content: [
                 {
                   type: "text" as const,
-                  text: JSON.stringify(result.result),
+                  text: JSON.stringify(resultValue),
                 },
               ],
             };

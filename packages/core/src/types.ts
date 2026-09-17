@@ -5,6 +5,10 @@ export type Actor = {
   actorId: string;
 };
 
+export interface ExecuteOptions {
+  dryRun?: boolean;
+}
+
 export type ActionContext = {
   actor: Actor;
   workspaceId: string;
@@ -59,6 +63,16 @@ export class ActionPendingApprovalError extends Error {
   }
 }
 
+export class ActionPendingIrreversibleConfirmationError extends Error {
+  constructor(
+    message: string,
+    public readonly confirmationId: string
+  ) {
+    super(message);
+    this.name = "ActionPendingIrreversibleConfirmationError";
+  }
+}
+
 export type ActorStatus = "active" | "contained" | "revoked";
 
 export interface ActorState {
@@ -89,6 +103,16 @@ export interface ActionEventLookup {
 }
 
 export type PermissionResult = "allow" | "deny" | "approval_required";
+
+export type RiskTier = "instant" | "delayed" | "irreversible";
+
+export type RiskMode = "guarded" | "autonomous";
+
+export type DelayedExecutionResult = {
+  status: "delayed";
+  pendingId: string;
+  scheduledRunAt: Date;
+};
 
 export type PermissionRule = {
   actorId?: string;
@@ -135,14 +159,20 @@ export interface InsertActionApproval {
   approvedBy: string | null;
 }
 
-export interface ActionConfig<TInput extends z.ZodTypeAny> {
+export type RollbackFn<TOutput = unknown> = (output: TOutput, ctx: ActionContext) => Promise<void>;
+
+export interface ActionConfig<TInput extends z.ZodTypeAny, TOutput = unknown> {
   name: string;
   description: string;
   permission: string;
   inputSchema: TInput;
-  handler: (input: z.infer<TInput>, ctx: ActionContext) => Promise<unknown>;
+  handler: (input: z.infer<TInput>, ctx: ActionContext) => Promise<TOutput>;
   approvalTtlMs?: number;
   blastRadius?: string[];
+  riskTier?: RiskTier;
+  delayWindowMs?: number;
+  confirmationTtlMs?: number;
+  rollback?: RollbackFn<TOutput>;
 }
 
 export interface ActionResult<T = unknown> {
@@ -150,18 +180,31 @@ export interface ActionResult<T = unknown> {
   eventId: string;
 }
 
-export interface DefinedAction<TInput extends z.ZodTypeAny> {
+export interface DryRunResult {
+  wouldSucceed: true;
+  eventId?: string;
+}
+
+export type ActionExecutionResult<T = unknown> = ActionResult<T> | DryRunResult;
+
+export interface DefinedAction<TInput extends z.ZodTypeAny, TOutput = unknown> {
   name: string;
   description: string;
   permission: string;
   input: TInput;
   blastRadius?: string[];
+  riskTier?: RiskTier;
+  delayWindowMs?: number;
+  confirmationTtlMs?: number;
+  rollback?: RollbackFn<TOutput>;
+  handler: (input: z.infer<TInput>, ctx: ActionContext) => Promise<TOutput>;
   execute(
     rawInput: unknown,
     ctx: ActionContext,
     dbClient?: DbClient,
-    permissionEngine?: PermissionEngine
-  ): Promise<ActionResult<unknown>>;
+    permissionEngine?: PermissionEngine,
+    options?: ExecuteOptions
+  ): Promise<ActionExecutionResult<unknown> | DelayedExecutionResult>;
 }
 
 export interface ActionEvent<TInput = unknown, TOutput = unknown> {
@@ -177,6 +220,7 @@ export interface ActionEvent<TInput = unknown, TOutput = unknown> {
   parentEventId: string | null;
   createdAt: Date;
   updatedAt: Date;
+  dryRun: boolean;
 }
 
 export interface ActionEventWithChain extends ActionEvent {
@@ -190,6 +234,7 @@ export interface ListEventsFilters {
   permissionResult?: PermissionResult;
   from?: Date;
   to?: Date;
+  dryRun?: boolean;
 }
 
 export interface ListEventsOptions {
@@ -225,6 +270,41 @@ export interface PendingApprovalWithEvent {
   };
 }
 
+export type DelayedActionStatus = "pending" | "canceled" | "executed";
+
+export interface PendingDelayedAction {
+  id: string;
+  actionEventId: string;
+  actionName: string;
+  input: unknown;
+  actorId: string;
+  workspaceId: string;
+  scheduledRunAt: Date;
+  status: DelayedActionStatus;
+  createdAt: Date;
+}
+
+export interface InsertPendingDelayedAction {
+  actionEventId: string;
+  actionName: string;
+  input: unknown;
+  actorId: string;
+  workspaceId: string;
+  scheduledRunAt: Date;
+  status?: DelayedActionStatus;
+}
+
+export interface ListPendingDelayedActionsFilters {
+  actionName?: string;
+  status?: DelayedActionStatus;
+}
+
+export interface ListPendingDelayedActionsOptions {
+  filters?: ListPendingDelayedActionsFilters;
+  limit?: number;
+  cursor?: string;
+}
+
 export interface ListPendingApprovalsFilters {
   actionName?: string;
 }
@@ -247,6 +327,60 @@ export interface InsertActionEvent {
   durationMs: number | null;
   workspaceId: string;
   blastRadius: string[] | null;
+  dryRun?: boolean;
+}
+
+export type IrreversibleConfirmationStatus = "pending" | "confirmed" | "expired" | "rejected";
+
+export interface IrreversibleConfirmation {
+  id: string;
+  actionEventId: string;
+  actionName: string;
+  input: unknown;
+  actorId: string;
+  workspaceId: string;
+  confirmationToken: string;
+  channel: string;
+  sentTo: string;
+  status: IrreversibleConfirmationStatus;
+  expiresAt: Date;
+  confirmedAt: Date | null;
+  createdAt: Date;
+}
+
+export interface InsertIrreversibleConfirmation {
+  actionEventId: string;
+  actionName: string;
+  input: unknown;
+  actorId: string;
+  workspaceId: string;
+  confirmationToken: string;
+  channel: string;
+  sentTo: string;
+  status: IrreversibleConfirmationStatus;
+  expiresAt: Date;
+  confirmedAt: Date | null;
+}
+
+export interface PendingIrreversibleConfirmationWithEvent {
+  confirmation: IrreversibleConfirmation;
+  event: {
+    actionName: string;
+    actorType: Actor["actorType"];
+    actorId: string;
+    input: unknown;
+    requestedAt: Date;
+    expiresAt: Date;
+  };
+}
+
+export interface WorkspaceContact {
+  channel: "email" | "sms";
+  destination: string;
+}
+
+export interface WorkspaceContactResolver {
+  getContact(workspaceId: string): Promise<WorkspaceContact | null>;
 }
 
 export interface DbClient {
@@ -261,7 +395,20 @@ export interface DbClient {
   findActorState(actorId: string, workspaceId: string): Promise<ActorState | null>;
   upsertActorState(state: InsertActorState): Promise<void>;
   listEvents(workspaceId: string, options?: ListEventsOptions): Promise<PaginatedResult<ActionEvent>>;
-  getEventWithChain(eventId: string): Promise<ActionEventWithChain | null>;
+  getEventWithChain(eventId: string, includeDryRun?: boolean): Promise<ActionEventWithChain | null>;
   listContainedActors(workspaceId: string): Promise<ContainedActor[]>;
   listPendingApprovals(workspaceId: string, options?: ListPendingApprovalsOptions): Promise<PendingApprovalWithEvent[]>;
+
+  insertPendingDelayedAction(action: InsertPendingDelayedAction): Promise<{ id: string }>;
+  updatePendingDelayedAction(id: string, action: Partial<InsertPendingDelayedAction>): Promise<void>;
+  findPendingDelayedActionById(id: string): Promise<PendingDelayedAction | null>;
+  findPendingDelayedActions(workspaceId: string, options?: ListPendingDelayedActionsOptions): Promise<PaginatedResult<PendingDelayedAction>>;
+  findPendingDelayedActionsDue(workspaceId: string): Promise<PendingDelayedAction[]>;
+
+  insertIrreversibleConfirmation(confirmation: InsertIrreversibleConfirmation): Promise<{ id: string }>;
+  findIrreversibleConfirmationByToken(token: string): Promise<IrreversibleConfirmation | null>;
+  updateIrreversibleConfirmation(id: string, confirmation: Partial<InsertIrreversibleConfirmation>): Promise<void>;
+  findPendingIrreversibleConfirmations(): Promise<IrreversibleConfirmation[]>;
+  findAllPendingIrreversibleConfirmations(): Promise<IrreversibleConfirmation[]>;
+  listPendingIrreversibleConfirmations(workspaceId: string): Promise<PendingIrreversibleConfirmationWithEvent[]>;
 }

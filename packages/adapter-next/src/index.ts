@@ -19,6 +19,16 @@ export {
 } from "./review-route";
 
 export {
+  createConfirmationRouteHandler,
+  type ConfirmationRouteOptions,
+} from "./confirmation-route";
+
+export {
+  createRollbackRouteHandler,
+  type RollbackRouteOptions,
+} from "./rollback-route";
+
+export {
   createEventsRouteHandler,
   createEventChainRouteHandler,
   createContainedActorsRouteHandler,

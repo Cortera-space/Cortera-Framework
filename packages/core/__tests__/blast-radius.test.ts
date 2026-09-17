@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import { z } from "zod";
 import {
   defineAction,
@@ -7,10 +7,10 @@ import {
   type DbClient,
   type InsertActionEvent,
   withParent,
+  getActorState,
+  reviewContainedActor,
   checkActorContainment,
   checkBlastRadius,
-  reviewContainedActor,
-  getActorState,
 } from "../src/index";
 
 const makeCtx = (overrides?: Partial<ActionContext>): ActionContext => ({
@@ -42,7 +42,7 @@ class MockDbClient implements DbClient {
     }
   }
 
-  async insertActionApproval(approval: InsertActionEvent): Promise<{ id: string }> {
+  async insertActionApproval(_approval: InsertActionEvent): Promise<{ id: string }> {
     return { id: "approval-1" };
   }
 
@@ -116,8 +116,8 @@ describe("blast-radius", () => {
       permission: "notes.create",
       inputSchema: z.object({ title: z.string() }),
       blastRadius: ["notes.*", "notifications.send"],
-      handler: async (input, ctx) => {
-        return { parent: input.title };
+      handler: async (_input, _ctx) => {
+        return { parent: _input.title };
       },
     });
 
@@ -153,9 +153,7 @@ describe("blast-radius", () => {
       permission: "notes.create",
       inputSchema: z.object({ title: z.string() }),
       blastRadius: ["notes.*"],
-      handler: async (input, ctx) => {
-        return { parent: input.title };
-      },
+      handler: async (_input, _ctx) => ({ parent: _input.title }),
     });
 
     const child = defineAction({
@@ -201,7 +199,7 @@ describe("blast-radius", () => {
       permission: "notes.create",
       inputSchema: z.object({ title: z.string() }),
       blastRadius: ["notes.*"],
-      handler: async (input, ctx) => ({ parent: input.title }),
+      handler: async (_input, _ctx) => ({ parent: _input.title }),
     });
 
     const child = defineAction({
@@ -209,7 +207,7 @@ describe("blast-radius", () => {
       description: "Child action",
       permission: "customers.delete",
       inputSchema: z.object({ id: z.string() }),
-      handler: async (input) => ({ deleted: true }),
+      handler: async (_input) => ({ deleted: true }),
     });
 
     const unrelated = defineAction({
@@ -217,7 +215,7 @@ describe("blast-radius", () => {
       description: "Unrelated action",
       permission: "notes.create",
       inputSchema: z.object({ title: z.string() }),
-      handler: async (input) => ({ title: input.title }),
+      handler: async (_input) => ({ title: _input.title }),
     });
 
     const dbClient = new MockDbClient();
@@ -248,7 +246,7 @@ describe("blast-radius", () => {
       permission: "notes.create",
       inputSchema: z.object({ title: z.string() }),
       blastRadius: ["notes.*"],
-      handler: async (input) => ({ parent: input.title }),
+      handler: async (_input) => ({ parent: _input.title }),
     });
 
     const child = defineAction({
@@ -256,7 +254,7 @@ describe("blast-radius", () => {
       description: "Child action",
       permission: "customers.delete",
       inputSchema: z.object({ id: z.string() }),
-      handler: async (input) => ({ deleted: true }),
+      handler: async (_input) => ({ deleted: true }),
     });
 
     const dbClient = new MockDbClient();
@@ -299,7 +297,7 @@ describe("blast-radius", () => {
       permission: "notes.create",
       inputSchema: z.object({ title: z.string() }),
       blastRadius: ["notes.*"],
-      handler: async (input) => ({ parent: input.title }),
+      handler: async (_input) => ({ parent: _input.title }),
     });
 
     const child = defineAction({
@@ -307,7 +305,7 @@ describe("blast-radius", () => {
       description: "Child action",
       permission: "customers.delete",
       inputSchema: z.object({ id: z.string() }),
-      handler: async (input) => ({ deleted: true }),
+      handler: async (_input) => ({ deleted: true }),
     });
 
     const dbClient = new MockDbClient();
@@ -346,7 +344,7 @@ describe("blast-radius", () => {
       permission: "notes.create",
       inputSchema: z.object({ title: z.string() }),
       blastRadius: ["notes.*"],
-      handler: async (input) => ({ parent: input.title }),
+      handler: async (_input) => ({ parent: _input.title }),
     });
 
     const child = defineAction({
@@ -354,7 +352,7 @@ describe("blast-radius", () => {
       description: "Child action",
       permission: "customers.delete",
       inputSchema: z.object({ id: z.string() }),
-      handler: async (input) => ({ deleted: true }),
+      handler: async (_input) => ({ deleted: true }),
     });
 
     const dbClient = new MockDbClient();

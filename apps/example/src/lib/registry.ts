@@ -5,10 +5,8 @@ import {
   defineAction,
   InMemoryPermissionEngine,
   type DbClient,
+  type ActionContext,
   type InsertActionEvent,
-  type InsertActionApproval,
-  type ActionApproval,
-  type ActionEventLookup,
   type ActorState,
   type InsertActorState,
   type ListEventsOptions,
@@ -18,8 +16,16 @@ import {
   type ContainedActor,
   type PendingApprovalWithEvent,
   type ListPendingApprovalsOptions,
+  type WorkspaceContact,
+  type WorkspaceContactResolver,
+  type ActionApproval,
+  type InsertPendingDelayedAction,
+  type PendingDelayedAction,
+  type ListPendingDelayedActionsOptions,
 } from "@tera/core";
-import { resolveActorFromRequest } from "@tera/adapter-next";
+import { resolveActorFromRequest, type ApiKeyMapping } from "@tera/adapter-next";
+import { deleteWorkspaceAction } from "@/actions/deleteWorkspace";
+import { archiveNoteAction } from "@/actions/archiveNote";
 
 export const registry = new ActionRegistry();
 
@@ -32,12 +38,19 @@ permissionEngine.addRule({ actorType: "human", permissionKey: "notifications.sen
 permissionEngine.addRule({ actorType: "agent", permissionKey: "notifications.send", result: "allow" });
 permissionEngine.addRule({ actorType: "human", permissionKey: "customers.delete", result: "approval_required" });
 permissionEngine.addRule({ actorType: "agent", permissionKey: "customers.delete", result: "approval_required" });
+permissionEngine.addRule({ actorType: "human", permissionKey: "workspaces.delete", result: "allow" });
+permissionEngine.addRule({ actorType: "agent", permissionKey: "workspaces.delete", result: "allow" });
+permissionEngine.addRule({ actorType: "human", permissionKey: "notes.archive", result: "allow" });
+permissionEngine.addRule({ actorType: "agent", permissionKey: "notes.archive", result: "allow" });
+permissionEngine.addRule({ actorType: "human", permissionKey: "records.bulkDelete", result: "allow" });
+permissionEngine.addRule({ actorType: "agent", permissionKey: "records.bulkDelete", result: "allow" });
 
 class InMemoryDbClient implements DbClient {
   public events: Array<InsertActionEvent & { id: string }> = [];
   public actorStates = new Map<string, ActorState>();
   private approvals: Array<ActionApproval> = [];
   private apiKeys = new Map<string, { id: string; keyHash: string; actorId: string; workspaceId: string; name: string; createdAt: Date; revokedAt: Date | null; lastUsedAt: Date | null }>();
+  public pendingDelayedActions: Array<PendingDelayedAction & { id: string }> = [];
 
   constructor() {
     // Pre-populate test API keys for backward compatibility with tests
@@ -119,17 +132,14 @@ class InMemoryDbClient implements DbClient {
     }
   }
 
-  async insertActionApproval(approval: InsertActionApproval): Promise<{ id: string }> {
+  async insertActionApproval(approval: any): Promise<{ id: string }> {
     const id = `approval-${this.approvals.length + 1}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const record: ActionApproval = {
-      ...approval,
-      id,
-    };
+    const record: ActionApproval = { ...approval, id };
     this.approvals.push(record);
     return { id };
   }
 
-  async updateActionApproval(id: string, event: Partial<InsertActionApproval>): Promise<void> {
+  async updateActionApproval(id: string, event: Partial<any>): Promise<void> {
     const existing = this.approvals.find((a) => a.id === id);
     if (existing) {
       Object.assign(existing, event);
@@ -148,7 +158,7 @@ class InMemoryDbClient implements DbClient {
     return this.approvals.find((a) => a.id === id) ?? null;
   }
 
-  async findEventById(id: string): Promise<ActionEventLookup | null> {
+  async findEventById(id: string): Promise<any | null> {
     const event = this.events.find((e) => e.id === id);
     if (!event) return null;
     return {
@@ -177,8 +187,8 @@ class InMemoryDbClient implements DbClient {
 
   async listEvents(
     workspaceId: string,
-    options?: ListEventsOptions
-  ): Promise<PaginatedResult<ActionEvent>> {
+    options?: any
+  ): Promise<any> {
     const { filters, limit = 50, cursor } = options ?? {};
     let filtered = this.events.filter((e) => e.workspaceId === workspaceId);
 
@@ -197,6 +207,11 @@ class InMemoryDbClient implements DbClient {
     if (filters?.to) {
       filtered = filtered.filter((e) => e.startedAt <= filters.to!);
     }
+    if (filters?.dryRun !== undefined) {
+      filtered = filtered.filter((e) => e.dryRun === filters.dryRun);
+    } else {
+      filtered = filtered.filter((e) => e.dryRun === false);
+    }
     if (cursor) {
       const cursorDate = new Date(cursor);
       filtered = filtered.filter((e) => e.startedAt < cursorDate);
@@ -209,28 +224,30 @@ class InMemoryDbClient implements DbClient {
       actionName: e.actionName,
       actorType: e.actorType,
       actorId: e.actorId,
-      permissionResult: e.permissionResult as ActionEvent["permissionResult"],
+      permissionResult: e.permissionResult,
       status: "completed",
       input: e.input,
       output: e.output,
-      error: e.error as string | null,
+      error: e.error,
       parentEventId: e.parentEventId,
       createdAt: e.startedAt,
       updatedAt: e.startedAt,
+      dryRun: e.dryRun,
     }));
 
     const nextCursor = filtered.length > limit ? filtered[limit - 1].startedAt.toISOString() : null;
     return { items, nextCursor };
   }
 
-  async getEventWithChain(eventId: string): Promise<ActionEventWithChain | null> {
-    const eventMap = new Map<string, ActionEventWithChain>();
+  async getEventWithChain(eventId: string, includeDryRun = false): Promise<any> {
+    const eventMap = new Map<string, any>();
     const allEventIds = new Set<string>();
 
     let currentId: string | null = eventId;
     while (currentId) {
       const event = this.events.find((e) => e.id === currentId);
       if (!event) break;
+      if (!includeDryRun && event.dryRun) break;
       allEventIds.add(currentId);
       currentId = event.parentEventId ?? null;
     }
@@ -238,7 +255,7 @@ class InMemoryDbClient implements DbClient {
     const stack = [eventId];
     while (stack.length > 0) {
       const parentId = stack.pop()!;
-      const children = this.events.filter((e) => e.parentEventId === parentId);
+      const children = this.events.filter((e) => e.parentEventId === parentId && (includeDryRun || !e.dryRun));
       for (const child of children) {
         allEventIds.add(child.id);
         stack.push(child.id);
@@ -253,14 +270,15 @@ class InMemoryDbClient implements DbClient {
         actionName: event.actionName,
         actorType: event.actorType,
         actorId: event.actorId,
-        permissionResult: event.permissionResult as ActionEvent["permissionResult"],
+        permissionResult: event.permissionResult,
         status: "completed",
         input: event.input,
         output: event.output,
-        error: event.error as string | null,
+        error: event.error,
         parentEventId: event.parentEventId,
         createdAt: event.startedAt,
         updatedAt: event.startedAt,
+        dryRun: event.dryRun,
         ancestors: [],
         descendants: [],
       });
@@ -277,27 +295,24 @@ class InMemoryDbClient implements DbClient {
     const targetEvent = eventMap.get(eventId);
     if (!targetEvent) return null;
 
-    // Clear the immediate parent link and build full ancestor chain
     targetEvent.ancestors = [];
     this.buildFullAncestorChain(targetEvent, eventMap);
 
-    // Create a serializable version without circular references
     const serializable = this.makeSerializable(targetEvent, new Set());
     return serializable;
   }
 
-  private buildFullAncestorChain(targetEvent: ActionEventWithChain, eventMap: Map<string, ActionEventWithChain>) {
-    let current: ActionEventWithChain | null = targetEvent;
+  private buildFullAncestorChain(targetEvent: any, eventMap: Map<string, any>) {
+    let current: any | null = targetEvent;
     while (current && current.parentEventId && eventMap.has(current.parentEventId)) {
-      const parent: ActionEventWithChain = eventMap.get(current.parentEventId)!;
+      const parent: any = eventMap.get(current.parentEventId)!;
       targetEvent.ancestors.unshift(parent);
       current = parent;
     }
   }
 
-  private makeSerializable(event: ActionEventWithChain, visited: Set<string>): ActionEventWithChain {
+  private makeSerializable(event: any, visited: Set<string>): any {
     if (visited.has(event.eventId)) {
-      // Return a minimal version to break circular reference
       return {
         eventId: event.eventId,
         actionName: event.actionName,
@@ -311,6 +326,7 @@ class InMemoryDbClient implements DbClient {
         parentEventId: event.parentEventId,
         createdAt: event.createdAt,
         updatedAt: event.updatedAt,
+        dryRun: event.dryRun,
         ancestors: [],
         descendants: [],
       };
@@ -319,14 +335,14 @@ class InMemoryDbClient implements DbClient {
 
     return {
       ...event,
-      ancestors: event.ancestors.map((a) => this.makeSerializable(a, visited)),
-      descendants: event.descendants.map((d) => this.makeSerializable(d, visited)),
+      ancestors: event.ancestors.map((a: any) => this.makeSerializable(a, visited)),
+      descendants: event.descendants.map((d: any) => this.makeSerializable(d, visited)),
     };
   }
 
-  private sortTree(event: ActionEventWithChain) {
-    event.ancestors.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
-    event.descendants.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+  private sortTree(event: any) {
+    event.ancestors.sort((a: any, b: any) => a.createdAt.getTime() - b.createdAt.getTime());
+    event.descendants.sort((a: any, b: any) => a.createdAt.getTime() - b.createdAt.getTime());
     for (const child of event.descendants) {
       this.sortTree(child);
     }
@@ -353,8 +369,8 @@ class InMemoryDbClient implements DbClient {
 
   async listPendingApprovals(
     workspaceId: string,
-    options?: ListPendingApprovalsOptions
-  ): Promise<PendingApprovalWithEvent[]> {
+    options?: any
+  ): Promise<any[]> {
     const { filters } = options ?? {};
     let pending = this.approvals.filter((a) => a.status === "pending" && a.workspaceId === workspaceId);
 
@@ -367,9 +383,7 @@ class InMemoryDbClient implements DbClient {
     return pending.map((approval) => {
       const event = this.events.find((e) => e.id === approval.actionEventId);
       return {
-        approval: {
-          ...approval,
-        },
+        approval: { ...approval },
         event: {
           actionName: event?.actionName ?? approval.actionName,
           actorType: event?.actorType ?? approval.actorType,
@@ -380,6 +394,74 @@ class InMemoryDbClient implements DbClient {
         },
       };
     });
+  }
+
+  async insertPendingDelayedAction(action: InsertPendingDelayedAction): Promise<{ id: string }> {
+    const id = `pending-${this.pendingDelayedActions.length + 1}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const record: PendingDelayedAction & { id: string } = {
+      id,
+      actionEventId: action.actionEventId,
+      actionName: action.actionName,
+      input: action.input,
+      actorId: action.actorId,
+      workspaceId: action.workspaceId,
+      scheduledRunAt: action.scheduledRunAt,
+      status: action.status ?? "pending",
+      createdAt: new Date(),
+    };
+    this.pendingDelayedActions.push(record);
+    return { id };
+  }
+
+  async updatePendingDelayedAction(
+    id: string,
+    action: Partial<InsertPendingDelayedAction>
+  ): Promise<void> {
+    const existing = this.pendingDelayedActions.find((a) => a.id === id);
+    if (existing) {
+      Object.assign(existing, action);
+    }
+  }
+
+  async findPendingDelayedActionById(id: string): Promise<PendingDelayedAction | null> {
+    const record = this.pendingDelayedActions.find((a) => a.id === id);
+    if (!record) return null;
+    return record;
+  }
+
+  async findPendingDelayedActions(
+    workspaceId: string,
+    options?: ListPendingDelayedActionsOptions
+  ): Promise<PaginatedResult<PendingDelayedAction>> {
+    const { filters, limit = 50, cursor } = options ?? {};
+    let filtered = this.pendingDelayedActions.filter((a) => a.workspaceId === workspaceId);
+
+    if (filters?.actionName) {
+      filtered = filtered.filter((a) => a.actionName === filters.actionName);
+    }
+    if (filters?.status) {
+      filtered = filtered.filter((a) => a.status === filters.status);
+    }
+    if (cursor) {
+      const cursorDate = new Date(cursor);
+      filtered = filtered.filter((a) => a.createdAt < cursorDate);
+    }
+
+    filtered.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+    const items = filtered.slice(0, limit);
+    const nextCursor = filtered.length > limit ? filtered[limit - 1].createdAt.toISOString() : null;
+    return { items, nextCursor };
+  }
+
+  async findPendingDelayedActionsDue(workspaceId: string): Promise<PendingDelayedAction[]> {
+    const now = new Date();
+    return this.pendingDelayedActions.filter(
+      (a) =>
+        a.workspaceId === workspaceId &&
+        a.status === "pending" &&
+        a.scheduledRunAt <= now
+    );
   }
 }
 
@@ -399,6 +481,7 @@ export const createNoteAction = defineAction({
     content: z.string().min(1),
   }),
   handler: async (input) => {
+    console.log("HANDLER EXECUTED: createNote", input);
     return { id: "note-" + Date.now(), ...input };
   },
 });
@@ -413,6 +496,7 @@ export const restrictedNoteAction = defineAction({
   }),
   blastRadius: ["notes.*"],
   handler: async (input) => {
+    console.log("HANDLER EXECUTED: restrictedNote", input);
     return { id: "note-" + Date.now(), ...input };
   },
 });
@@ -426,6 +510,7 @@ export const notifyWatchersAction = defineAction({
     title: z.string(),
   }),
   handler: async (input) => {
+    console.log("HANDLER EXECUTED: notifyWatchers", input);
     return { notified: true, noteId: input.noteId };
   },
 });
@@ -438,6 +523,7 @@ export const deleteAllCustomersAction = defineAction({
     reason: z.string().optional(),
   }),
   handler: async (input) => {
+    console.log("HANDLER EXECUTED: deleteAllCustomers", input);
     return { deleted: true, reason: input.reason };
   },
 });
@@ -451,9 +537,26 @@ export const deleteCustomerAction = defineAction({
     reason: z.string().optional(),
   }),
   handler: async (input) => {
+    console.log("HANDLER EXECUTED: deleteCustomer", input);
     return { deleted: true, customerId: input.id };
   },
   approvalTtlMs: 24 * 60 * 60 * 1000,
+});
+
+export const bulkDeleteRecordsAction = defineAction({
+  name: "bulkDeleteRecords",
+  description: "Bulk deletes records — delayed for safety review",
+  permission: "records.bulkDelete",
+  inputSchema: z.object({
+    table: z.string(),
+    filter: z.record(z.unknown()).optional(),
+    reason: z.string().optional(),
+  }),
+  riskTier: "delayed",
+  delayWindowMs: 5 * 60 * 1000, // 5 minutes
+  handler: async (input) => {
+    return { deleted: true, table: input.table, reason: input.reason };
+  },
 });
 
 registry.register(createNoteAction);
@@ -461,8 +564,24 @@ registry.register(restrictedNoteAction);
 registry.register(notifyWatchersAction);
 registry.register(deleteAllCustomersAction);
 registry.register(deleteCustomerAction);
-
+registry.register(deleteWorkspaceAction);
+registry.register(archiveNoteAction);
+registry.register(bulkDeleteRecordsAction);
 
 export const defaultWorkspaceId = "default-workspace";
 
-export { resolveActorFromRequest };
+export const workspaceContactResolver: WorkspaceContactResolver = {
+  async getContact(workspaceId: string): Promise<WorkspaceContact | null> {
+    if (workspaceId === defaultWorkspaceId) {
+      return {
+        channel: "email",
+        destination: "admin@example.com",
+      };
+    }
+    return null;
+  },
+};
+
+(globalThis as any).__TERA_CONTACT_RESOLVER__ = workspaceContactResolver;
+
+export { resolveActorFromRequest, type ApiKeyMapping };

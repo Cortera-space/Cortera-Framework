@@ -14,4 +14,18 @@ export {
   reviewContainedActor,
   getActorState,
 } from "./containment";
+export {
+  cancelDelayedAction,
+  processPendingDelayedActions,
+} from "./delayed-actions";
+export {
+  requestIrreversibleConfirmation,
+  confirmIrreversibleConfirmation,
+  rejectIrreversibleConfirmation,
+  expirePendingIrreversibleConfirmations,
+} from "./irreversible-confirmation";
+export {
+  rollbackAction,
+  ActionRollbackError,
+} from "./rollback";
 export { InMemoryDbClient } from "./test-utils";

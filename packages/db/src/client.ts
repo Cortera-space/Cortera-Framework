@@ -8,13 +8,18 @@ import type {
   ActorState,
   InsertActorState,
   ListEventsOptions,
-  ListEventsFilters,
   PaginatedResult,
   ActionEvent,
   ActionEventWithChain,
   ContainedActor,
   PendingApprovalWithEvent,
   ListPendingApprovalsOptions,
+  InsertPendingDelayedAction,
+  PendingDelayedAction,
+  ListPendingDelayedActionsOptions,
+  InsertIrreversibleConfirmation,
+  IrreversibleConfirmation,
+  PendingIrreversibleConfirmationWithEvent,
 } from "@tera/core";
 
 export type PostgresDbClientOptions = {
@@ -33,8 +38,8 @@ export class PostgresDbClient implements DbClient {
       `INSERT INTO action_events (
         action_name, actor_type, actor_id, input, output, error,
         permission_result, approved_by, parent_event_id,
-        started_at, duration_ms, workspace_id, blast_radius
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        started_at, duration_ms, workspace_id, blast_radius, dry_run
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
       RETURNING id`,
       [
         event.actionName,
@@ -50,6 +55,7 @@ export class PostgresDbClient implements DbClient {
         event.durationMs,
         event.workspaceId,
         event.blastRadius ?? null,
+        event.dryRun ?? false,
       ]
     );
     return { id: rows[0].id };
@@ -315,6 +321,13 @@ export class PostgresDbClient implements DbClient {
       conditions.push(`started_at <= $${idx++}`);
       values.push(filters.to);
     }
+    if (filters?.dryRun !== undefined) {
+      conditions.push(`dry_run = $${idx++}`);
+      values.push(filters.dryRun);
+    } else {
+      // Default: exclude dry-run events
+      conditions.push(`dry_run = false`);
+    }
     if (cursor) {
       conditions.push(`started_at < $${idx++}`);
       values.push(new Date(cursor));
@@ -324,7 +337,7 @@ export class PostgresDbClient implements DbClient {
     const sql = `
       SELECT id, action_name, actor_type, actor_id, input, output, error,
              permission_result, approved_by, parent_event_id,
-             started_at, duration_ms, workspace_id, blast_radius
+             started_at, duration_ms, workspace_id, blast_radius, dry_run
       FROM action_events
       WHERE ${whereClause}
       ORDER BY started_at DESC
@@ -346,15 +359,16 @@ export class PostgresDbClient implements DbClient {
       parentEventId: row.parent_event_id,
       createdAt: new Date(row.started_at),
       updatedAt: new Date(row.started_at),
+      dryRun: row.dry_run,
     }));
 
     const nextCursor = rows.length > limit ? rows[limit - 1].started_at.toISOString() : null;
     return { items, nextCursor };
   }
 
-  async getEventWithChain(eventId: string): Promise<ActionEventWithChain | null> {
-    const ancestorRows = await this.getAncestors(eventId);
-    const descendantRows = await this.getDescendants(eventId);
+  async getEventWithChain(eventId: string, includeDryRun = false): Promise<ActionEventWithChain | null> {
+    const ancestorRows = await this.getAncestors(eventId, includeDryRun);
+    const descendantRows = await this.getDescendants(eventId, includeDryRun);
 
     const allRows = [...ancestorRows, ...descendantRows];
     if (allRows.length === 0) {
@@ -376,6 +390,7 @@ export class PostgresDbClient implements DbClient {
         parentEventId: row.parent_event_id,
         createdAt: new Date(row.started_at),
         updatedAt: new Date(row.started_at),
+        dryRun: row.dry_run,
         ancestors: [],
         descendants: [],
       });
@@ -398,7 +413,7 @@ export class PostgresDbClient implements DbClient {
     return rootEvent;
   }
 
-  private async getAncestors(eventId: string) {
+  private async getAncestors(eventId: string, includeDryRun = false) {
     const rows: any[] = [];
     let currentId: string | null = eventId;
 
@@ -406,9 +421,9 @@ export class PostgresDbClient implements DbClient {
       const { rows: result } = await this.pool.query(
         `SELECT id, action_name, actor_type, actor_id, input, output, error,
                 permission_result, approved_by, parent_event_id,
-                started_at, duration_ms, workspace_id, blast_radius
+                started_at, duration_ms, workspace_id, blast_radius, dry_run
          FROM action_events
-         WHERE id = $1`,
+         WHERE id = $1${includeDryRun ? "" : " AND dry_run = false"}`,
         [currentId]
       );
       if (result.length === 0) break;
@@ -419,7 +434,7 @@ export class PostgresDbClient implements DbClient {
     return rows;
   }
 
-  private async getDescendants(eventId: string) {
+  private async getDescendants(eventId: string, includeDryRun = false) {
     const rows: any[] = [];
     const stack = [eventId];
 
@@ -428,9 +443,9 @@ export class PostgresDbClient implements DbClient {
       const { rows: result } = await this.pool.query(
         `SELECT id, action_name, actor_type, actor_id, input, output, error,
                 permission_result, approved_by, parent_event_id,
-                started_at, duration_ms, workspace_id, blast_radius
+                started_at, duration_ms, workspace_id, blast_radius, dry_run
          FROM action_events
-         WHERE parent_event_id = $1
+         WHERE parent_event_id = $1${includeDryRun ? "" : " AND dry_run = false"}
          ORDER BY started_at ASC`,
         [parentId]
       );
@@ -532,6 +547,355 @@ export class PostgresDbClient implements DbClient {
           input: event ? JSON.parse(event.input) : JSON.parse(approval.input),
           requestedAt: event ? new Date(event.started_at) : new Date(approval.requested_at),
           expiresAt: new Date(approval.expires_at),
+        },
+      };
+    });
+  }
+
+  async insertPendingDelayedAction(action: InsertPendingDelayedAction): Promise<{ id: string }> {
+    const { rows } = await this.pool.query(
+      `INSERT INTO pending_delayed_actions (
+        action_event_id, action_name, input, actor_id, workspace_id, scheduled_run_at, status
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+      RETURNING id`,
+      [
+        action.actionEventId,
+        action.actionName,
+        JSON.stringify(action.input),
+        action.actorId,
+        action.workspaceId,
+        action.scheduledRunAt,
+        action.status ?? "pending",
+      ]
+    );
+    return { id: rows[0].id };
+  }
+
+  async updatePendingDelayedAction(
+    id: string,
+    action: Partial<InsertPendingDelayedAction>
+  ): Promise<void> {
+    const setClauses: string[] = [];
+    const values: unknown[] = [];
+    let idx = 1;
+
+    if (action.actionEventId !== undefined) {
+      setClauses.push(`action_event_id = $${idx++}`);
+      values.push(action.actionEventId);
+    }
+    if (action.actionName !== undefined) {
+      setClauses.push(`action_name = $${idx++}`);
+      values.push(action.actionName);
+    }
+    if (action.input !== undefined) {
+      setClauses.push(`input = $${idx++}`);
+      values.push(JSON.stringify(action.input));
+    }
+    if (action.actorId !== undefined) {
+      setClauses.push(`actor_id = $${idx++}`);
+      values.push(action.actorId);
+    }
+    if (action.workspaceId !== undefined) {
+      setClauses.push(`workspace_id = $${idx++}`);
+      values.push(action.workspaceId);
+    }
+    if (action.scheduledRunAt !== undefined) {
+      setClauses.push(`scheduled_run_at = $${idx++}`);
+      values.push(action.scheduledRunAt);
+    }
+    if (action.status !== undefined) {
+      setClauses.push(`status = $${idx++}`);
+      values.push(action.status);
+    }
+
+    if (setClauses.length === 0) {
+      return;
+    }
+
+    values.push(id);
+    const sql = `UPDATE pending_delayed_actions SET ${setClauses.join(", ")} WHERE id = $${idx}`;
+    await this.pool.query(sql, values);
+  }
+
+  async findPendingDelayedActionById(id: string): Promise<PendingDelayedAction | null> {
+    const { rows } = await this.pool.query(
+      `SELECT id, action_event_id, action_name, input, actor_id, workspace_id,
+              scheduled_run_at, status, created_at
+       FROM pending_delayed_actions
+       WHERE id = $1`,
+      [id]
+    );
+    if (rows.length === 0) {
+      return null;
+    }
+    const row = rows[0];
+    return {
+      id: row.id,
+      actionEventId: row.action_event_id,
+      actionName: row.action_name,
+      input: JSON.parse(row.input),
+      actorId: row.actor_id,
+      workspaceId: row.workspace_id,
+      scheduledRunAt: new Date(row.scheduled_run_at),
+      status: row.status as PendingDelayedAction["status"],
+      createdAt: new Date(row.created_at),
+    };
+  }
+
+  async findPendingDelayedActions(
+    workspaceId: string,
+    options?: ListPendingDelayedActionsOptions
+  ): Promise<PaginatedResult<PendingDelayedAction>> {
+    const { filters, limit = 50, cursor } = options ?? {};
+    const conditions: string[] = ["workspace_id = $1"];
+    const values: unknown[] = [workspaceId];
+    let idx = 2;
+
+    if (filters?.actionName) {
+      conditions.push(`action_name = $${idx++}`);
+      values.push(filters.actionName);
+    }
+    if (filters?.status) {
+      conditions.push(`status = $${idx++}`);
+      values.push(filters.status);
+    }
+    if (cursor) {
+      conditions.push(`created_at < $${idx++}`);
+      values.push(new Date(cursor));
+    }
+
+    const whereClause = conditions.join(" AND ");
+    const sql = `
+      SELECT id, action_event_id, action_name, input, actor_id, workspace_id,
+             scheduled_run_at, status, created_at
+      FROM pending_delayed_actions
+      WHERE ${whereClause}
+      ORDER BY created_at DESC
+      LIMIT $${idx}
+    `;
+    values.push(limit + 1);
+
+    const { rows } = await this.pool.query(sql, values);
+    const items = rows.slice(0, limit).map((row) => ({
+      id: row.id,
+      actionEventId: row.action_event_id,
+      actionName: row.action_name,
+      input: JSON.parse(row.input),
+      actorId: row.actor_id,
+      workspaceId: row.workspace_id,
+      scheduledRunAt: new Date(row.scheduled_run_at),
+      status: row.status as PendingDelayedAction["status"],
+      createdAt: new Date(row.created_at),
+    }));
+
+    const nextCursor = rows.length > limit ? rows[limit - 1].created_at.toISOString() : null;
+    return { items, nextCursor };
+  }
+
+  async findPendingDelayedActionsDue(workspaceId: string): Promise<PendingDelayedAction[]> {
+    const { rows } = await this.pool.query(
+      `SELECT id, action_event_id, action_name, input, actor_id, workspace_id,
+              scheduled_run_at, status, created_at
+       FROM pending_delayed_actions
+       WHERE workspace_id = $1
+         AND status = 'pending'
+         AND scheduled_run_at <= now()`,
+      [workspaceId]
+    );
+    return rows.map((row) => ({
+      id: row.id,
+      actionEventId: row.action_event_id,
+      actionName: row.action_name,
+      input: JSON.parse(row.input),
+      actorId: row.actor_id,
+      workspaceId: row.workspace_id,
+      scheduledRunAt: new Date(row.scheduled_run_at),
+      status: row.status as PendingDelayedAction["status"],
+      createdAt: new Date(row.created_at),
+    }));
+  }
+
+  async insertIrreversibleConfirmation(confirmation: InsertIrreversibleConfirmation): Promise<{ id: string }> {
+    const { rows } = await this.pool.query(
+      `INSERT INTO irreversible_confirmations (
+        action_event_id, action_name, input, actor_id, workspace_id,
+        confirmation_token, channel, sent_to, status, expires_at, confirmed_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      RETURNING id`,
+      [
+        confirmation.actionEventId,
+        confirmation.actionName,
+        JSON.stringify(confirmation.input),
+        confirmation.actorId,
+        confirmation.workspaceId,
+        confirmation.confirmationToken,
+        confirmation.channel,
+        confirmation.sentTo,
+        confirmation.status,
+        confirmation.expiresAt,
+        confirmation.confirmedAt,
+      ]
+    );
+    return { id: rows[0].id };
+  }
+
+  async findIrreversibleConfirmationByToken(token: string): Promise<IrreversibleConfirmation | null> {
+    const { rows } = await this.pool.query(
+      `SELECT id, action_event_id, action_name, input, actor_id, workspace_id,
+              confirmation_token, channel, sent_to, status, expires_at, confirmed_at, created_at
+       FROM irreversible_confirmations
+       WHERE confirmation_token = $1`,
+      [token]
+    );
+    if (rows.length === 0) {
+      return null;
+    }
+    const row = rows[0];
+    return {
+      id: row.id,
+      actionEventId: row.action_event_id,
+      actionName: row.action_name,
+      input: JSON.parse(row.input),
+      actorId: row.actor_id,
+      workspaceId: row.workspace_id,
+      confirmationToken: row.confirmation_token,
+      channel: row.channel,
+      sentTo: row.sent_to,
+      status: row.status as IrreversibleConfirmation["status"],
+      expiresAt: new Date(row.expires_at),
+      confirmedAt: row.confirmed_at ? new Date(row.confirmed_at) : null,
+      createdAt: new Date(row.created_at),
+    };
+  }
+
+  async updateIrreversibleConfirmation(id: string, confirmation: Partial<InsertIrreversibleConfirmation>): Promise<void> {
+    const setClauses: string[] = [];
+    const values: unknown[] = [];
+    let idx = 1;
+
+    if (confirmation.status !== undefined) {
+      setClauses.push(`status = $${idx++}`);
+      values.push(confirmation.status);
+    }
+    if (confirmation.confirmedAt !== undefined) {
+      setClauses.push(`confirmed_at = $${idx++}`);
+      values.push(confirmation.confirmedAt);
+    }
+    if (confirmation.channel !== undefined) {
+      setClauses.push(`channel = $${idx++}`);
+      values.push(confirmation.channel);
+    }
+    if (confirmation.sentTo !== undefined) {
+      setClauses.push(`sent_to = $${idx++}`);
+      values.push(confirmation.sentTo);
+    }
+
+    if (setClauses.length === 0) {
+      return;
+    }
+
+    values.push(id);
+    const sql = `UPDATE irreversible_confirmations SET ${setClauses.join(", ")} WHERE id = $${idx}`;
+    await this.pool.query(sql, values);
+  }
+
+  async findPendingIrreversibleConfirmations(): Promise<IrreversibleConfirmation[]> {
+    const { rows } = await this.pool.query(
+      `SELECT id, action_event_id, action_name, input, actor_id, workspace_id,
+              confirmation_token, channel, sent_to, status, expires_at, confirmed_at, created_at
+       FROM irreversible_confirmations
+       WHERE status = 'pending' AND expires_at >= now()`
+    );
+    return rows.map((row) => ({
+      id: row.id,
+      actionEventId: row.action_event_id,
+      actionName: row.action_name,
+      input: JSON.parse(row.input),
+      actorId: row.actor_id,
+      workspaceId: row.workspace_id,
+      confirmationToken: row.confirmation_token,
+      channel: row.channel,
+      sentTo: row.sent_to,
+      status: row.status as IrreversibleConfirmation["status"],
+      expiresAt: new Date(row.expires_at),
+      confirmedAt: row.confirmed_at ? new Date(row.confirmed_at) : null,
+      createdAt: new Date(row.created_at),
+    }));
+  }
+
+  async findAllPendingIrreversibleConfirmations(): Promise<IrreversibleConfirmation[]> {
+    const { rows } = await this.pool.query(
+      `SELECT id, action_event_id, action_name, input, actor_id, workspace_id,
+              confirmation_token, channel, sent_to, status, expires_at, confirmed_at, created_at
+       FROM irreversible_confirmations
+       WHERE status = 'pending'`
+    );
+    return rows.map((row) => ({
+      id: row.id,
+      actionEventId: row.action_event_id,
+      actionName: row.action_name,
+      input: JSON.parse(row.input),
+      actorId: row.actor_id,
+      workspaceId: row.workspace_id,
+      confirmationToken: row.confirmation_token,
+      channel: row.channel,
+      sentTo: row.sent_to,
+      status: row.status as IrreversibleConfirmation["status"],
+      expiresAt: new Date(row.expires_at),
+      confirmedAt: row.confirmed_at ? new Date(row.confirmed_at) : null,
+      createdAt: new Date(row.created_at),
+    }));
+  }
+
+  async listPendingIrreversibleConfirmations(workspaceId: string): Promise<PendingIrreversibleConfirmationWithEvent[]> {
+    const { rows: confirmationRows } = await this.pool.query(
+      `SELECT id, action_event_id, action_name, input, actor_id, workspace_id,
+              confirmation_token, channel, sent_to, status, expires_at, confirmed_at, created_at
+       FROM irreversible_confirmations
+       WHERE status = 'pending' AND workspace_id = $1`,
+      [workspaceId]
+    );
+
+    if (confirmationRows.length === 0) {
+      return [];
+    }
+
+    const eventIds = confirmationRows.map((r) => r.action_event_id);
+    const placeholders = eventIds.map((_, i) => `$${i + 1}`).join(",");
+    const { rows: eventRows } = await this.pool.query(
+      `SELECT id, action_name, actor_type, actor_id, input, started_at
+       FROM action_events
+       WHERE id IN (${placeholders})`,
+      eventIds
+    );
+
+    const eventMap = new Map(eventRows.map((r) => [r.id, r]));
+
+    return confirmationRows.map((confirmation) => {
+      const event = eventMap.get(confirmation.action_event_id);
+      return {
+        confirmation: {
+          id: confirmation.id,
+          actionEventId: confirmation.action_event_id,
+          actionName: confirmation.action_name,
+          input: JSON.parse(confirmation.input),
+          actorId: confirmation.actor_id,
+          workspaceId: confirmation.workspace_id,
+          confirmationToken: confirmation.confirmation_token,
+          channel: confirmation.channel,
+          sentTo: confirmation.sent_to,
+          status: confirmation.status as IrreversibleConfirmation["status"],
+          expiresAt: new Date(confirmation.expires_at),
+          confirmedAt: confirmation.confirmed_at ? new Date(confirmation.confirmed_at) : null,
+          createdAt: new Date(confirmation.created_at),
+        },
+        event: {
+          actionName: event?.action_name ?? confirmation.action_name,
+          actorType: (event?.actor_type ?? "agent") as "human" | "agent" | "system",
+          actorId: event?.actor_id ?? confirmation.actor_id,
+          input: event ? JSON.parse(event.input) : JSON.parse(confirmation.input),
+          requestedAt: event ? new Date(event.started_at) : new Date(confirmation.created_at),
+          expiresAt: new Date(confirmation.expires_at),
         },
       };
     });

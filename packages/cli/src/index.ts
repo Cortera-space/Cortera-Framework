@@ -2,13 +2,22 @@
 import { Command } from "commander";
 import { PostgresDbClient } from "@tera/db";
 import { createApiKey, revokeApiKey, listApiKeys } from "@tera/auth";
+import { devCommand } from "./commands/dev.js";
+import { generateCommand } from "./commands/generate.js";
+import { migrateCommand } from "./commands/migrate.js";
+import { checkCommand } from "./commands/check.js";
+import { version } from "../package.json";
 
 const program = new Command();
 
 program
   .name("tera")
-  .description("Tera CLI - manage API keys and more")
-  .version("0.0.0");
+  .description("Tera CLI - Build, run, and inspect Tera projects")
+  .version(version)
+  .addCommand(devCommand)
+  .addCommand(generateCommand)
+  .addCommand(migrateCommand)
+  .addCommand(checkCommand);
 
 const keysCommand = program
   .command("keys")
@@ -116,7 +125,9 @@ keysCommand
     }
   });
 
-program.parseAsync(process.argv).catch((error) => {
-  console.error("Error:", error);
+program.addCommand(keysCommand);
+
+program.parseAsync(process.argv).catch((err) => {
+  console.error(err.message);
   process.exit(1);
 });

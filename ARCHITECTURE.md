@@ -240,3 +240,50 @@ The following primitives are exposed:
 
 Developers can build any dashboard UI against these primitives without
 depending on Tera's internal implementation.
+
+---
+
+## 11. Dry-Run Execution Mode
+
+Any Action call may pass `{ dryRun: true }`. In dry-run mode, Tera runs
+the full pre-execution pipeline — actor state check (contained/revoked),
+blast-radius evaluation, permission check, and input validation — exactly
+as a real call would, but stops before invoking the handler. The result
+reports what WOULD have happened (`{ wouldSucceed: true }` on success, or
+the same error/result shape a real failed call would produce) without any
+handler side effects occurring.
+
+### Dry-Run Behavior
+
+- **Actor state check (Stage 3.5)**: Runs normally. A contained actor's
+  dry run reports "would be denied: actor is contained" — does not
+  silently pass.
+- **Blast-radius evaluation (Stage 3.5)**: Runs against the live parent
+  chain if present. If the check would fail, reports "would be contained"
+  but does NOT actually flip the actor's state to "contained" in
+  `actor_states`. Only a REAL execution attempt causes a real containment
+  transition.
+- **Permission check (Stage 3)**: Runs normally.
+- **Input validation (Stage 1)**: Runs normally.
+- **Handler**: NOT called in dry-run mode.
+- **Event logging**: Dry-run calls are logged to `action_events` with
+  `dry_run: true`, `output: null` (never populated), and the same
+  `permission_result` value a real call would have gotten.
+
+### Observability API Default Behavior
+
+`listEvents` and `getEventWithChain` default to EXCLUDING dry-run events
+unless explicitly requested via a `dryRun` filter parameter, since most
+callers querying "what actually happened" don't want simulated calls
+mixed in.
+
+### REST Adapter
+
+Accepts a `?dryRun=true` query parameter on the existing Action-call
+route (`POST /actions/[actionName]`).
+
+### MCP Tool Schema
+
+An optional `dryRun` boolean is automatically injected into every
+generated tool's input schema (framework-level capability, not
+per-Action).
