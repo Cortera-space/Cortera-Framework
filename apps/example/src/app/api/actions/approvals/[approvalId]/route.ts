@@ -9,7 +9,7 @@ import { createApprovalRouteHandler } from "@tera/adapter-next";
 
 const approvalHandler = createApprovalRouteHandler({
   dbClient,
-  registry,
+  registry: registry as any,
   resolveActor: (request: NextRequest) => resolveActorFromRequest(request, { dbClient }),
   defaultWorkspaceId,
 });

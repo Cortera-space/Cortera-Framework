@@ -1,14 +1,14 @@
 import { restrictedNoteAction } from "./restrictedNote";
 import { createNoteAction } from "./createNote";
 import { deleteAllCustomersAction } from "./deleteAllCustomers";
-import { reviewContainedActor, type DbClient, type ListEventsOptions, type PaginatedResult, type ActionEvent, type ActionEventWithChain, type ContainedActor, type PendingApprovalWithEvent, type ListPendingApprovalsOptions } from "@tera/core";
+import { reviewContainedActor, type ListEventsOptions, type PaginatedResult, type ActionEvent, type ActionEventWithChain, type ContainedActor, type PendingApprovalWithEvent, type ListPendingApprovalsOptions } from "@tera/core";
 
 const ctx = {
   actor: { actorType: "agent" as const, actorId: "demo-agent" },
   workspaceId: "demo-workspace",
 };
 
-class MockDbClient implements DbClient {
+class MockDbClient {
   private events: Array<{
     id: string;
     actionName: string;
@@ -130,16 +130,16 @@ async function main() {
   const noteResult = await restrictedNoteAction.execute(
     { title: "Secret Note", content: "Sensitive data" },
     ctx,
-    dbClient
-  );
+    dbClient as any
+  ) as { result: any; eventId: string };
   console.log("restrictedNote executed:", noteResult.result);
 
   console.log("\n--- Step 2: Child within blast radius (createNote, permission: 'notes.create') ---");
   const safeResult = await createNoteAction.execute(
     { title: "Safe Note", content: "Allowed" },
     { ...ctx, parentEventId: noteResult.eventId },
-    dbClient
-  );
+    dbClient as any
+  ) as { result: any; eventId: string };
   console.log("createNote executed:", safeResult.result);
 
   console.log("\n--- Step 3: Child EXCEEDS blast radius (deleteAllCustomers, permission: 'customers.delete') ---");
@@ -147,7 +147,7 @@ async function main() {
     await deleteAllCustomersAction.execute(
       { reason: "oops" },
       { ...ctx, parentEventId: noteResult.eventId },
-      dbClient
+      dbClient as any
     );
     console.log("UNEXPECTED: deleteAllCustomers succeeded");
   } catch (error: any) {
@@ -160,7 +160,7 @@ async function main() {
     await createNoteAction.execute(
       { title: "Should Deny", content: "Blocked" },
       ctx,
-      dbClient
+      dbClient as any
     );
     console.log("UNEXPECTED: createNote succeeded after containment");
   } catch (error: any) {
@@ -175,15 +175,15 @@ async function main() {
   }
 
   console.log("\n--- Step 5: reviewContainedActor('lift') ---");
-  await reviewContainedActor(dbClient, "demo-agent", "demo-workspace", "lift", "human-reviewer");
+  await reviewContainedActor(dbClient as any, "demo-agent", "demo-workspace", "lift", "human-reviewer");
   console.log("Actor lifted by human-reviewer");
 
   console.log("\n--- Step 6: Verify operation resumes ---");
   const resumedResult = await createNoteAction.execute(
     { title: "Resumed Note", content: "Back online" },
     ctx,
-    dbClient
-  );
+    dbClient as any
+  ) as { result: any; eventId: string };
   console.log("createNote executed after lift:", resumedResult.result);
 
   console.log("\n--- Actor States After Review ---");

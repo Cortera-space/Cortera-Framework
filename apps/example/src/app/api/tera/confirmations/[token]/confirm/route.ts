@@ -7,7 +7,7 @@ import { createConfirmationRouteHandler } from "@tera/adapter-next";
 
 const confirmationHandler = createConfirmationRouteHandler({
   dbClient,
-  registry,
+  registry: registry as any,
 });
 
 export async function POST(

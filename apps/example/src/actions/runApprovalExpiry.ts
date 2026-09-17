@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { defineAction, InMemoryPermissionEngine, expirePendingApprovals, type ActionContext, type DbClient, type InsertActionEvent, type InsertActionApproval, type ListEventsOptions, type PaginatedResult, type ActionEvent, type ActionEventWithChain, type ContainedActor, type PendingApprovalWithEvent, type ListPendingApprovalsOptions } from "@tera/core";
+import { defineAction, InMemoryPermissionEngine, expirePendingApprovals, type ActionContext, type InsertActionEvent, type InsertActionApproval, type ListEventsOptions, type PaginatedResult, type ActionEvent, type ActionEventWithChain, type ContainedActor, type PendingApprovalWithEvent, type ListPendingApprovalsOptions } from "@tera/core";
 
 const makeCtx = (overrides?: Partial<ActionContext>): ActionContext => ({
   actor: { actorType: "human" as const, actorId: "demo-user" },
@@ -7,7 +7,7 @@ const makeCtx = (overrides?: Partial<ActionContext>): ActionContext => ({
   ...overrides,
 });
 
-class MockDbClient implements DbClient {
+class MockDbClient {
   public events: InsertActionEvent[] = [];
   public approvals: InsertActionApproval[] = [];
   private idMap = new Map<string, InsertActionEvent>();
@@ -98,7 +98,7 @@ async function main() {
   console.log("=== Step 1: Execute action (approval_required, TTL=1s) ===");
   let approvalId: string;
   try {
-    await action.execute({ data: "secret" }, makeCtx(), dbClient, engine);
+    await action.execute({ data: "secret" }, makeCtx(), dbClient as any, engine);
   } catch (error) {
     if (error && typeof error === "object" && "approvalId" in error) {
       approvalId = (error as any).approvalId;
@@ -115,7 +115,7 @@ async function main() {
   await new Promise((resolve) => setTimeout(resolve, 1500));
 
   console.log("Running expirePendingApprovals...");
-  await expirePendingApprovals(dbClient);
+  await expirePendingApprovals(dbClient as any);
 
   const expiredEvent = dbClient.events.find((e) => e.actionName === "sensitiveAction");
   console.log("Event permissionResult after expiry:", expiredEvent?.permissionResult);

@@ -92,7 +92,7 @@ async function executeImmediate(
   ctx: ActionContext,
   dbClient: DbClient | undefined,
   permissionEngine: PermissionEngine | undefined,
-  config: ActionConfig<any>,
+  config: ActionConfig<any, unknown>,
   startedAt: Date,
   dryRun: boolean
 ): Promise<ActionExecutionResult<unknown>> {
@@ -277,7 +277,7 @@ async function executeDelayed(
   ctx: ActionContext,
   dbClient: DbClient | undefined,
   permissionEngine: PermissionEngine | undefined,
-  config: ActionConfig<any>,
+  config: ActionConfig<any, unknown>,
   startedAt: Date
 ): Promise<ActionExecutionResult<unknown> | DelayedExecutionResult> {
   if (!dbClient) {
@@ -430,7 +430,7 @@ async function executeIrreversible(
   ctx: ActionContext,
   dbClient: DbClient | undefined,
   permissionEngine: PermissionEngine | undefined,
-  config: ActionConfig<any>,
+  config: ActionConfig<any, unknown>,
   startedAt: Date
 ): Promise<ActionExecutionResult<unknown> | DelayedExecutionResult> {
   if (!dbClient) {
@@ -593,7 +593,7 @@ export function defineAction<TInput extends z.ZodTypeAny, TOutput = unknown>(
     );
   }
 
-  const riskTier = config.riskTier ?? "standard";
+  const riskTier = config.riskTier ?? "instant";
   const confirmationTtlMs = config.confirmationTtlMs ?? 15 * 60 * 1000;
 
   const execute = async (
@@ -602,33 +602,33 @@ export function defineAction<TInput extends z.ZodTypeAny, TOutput = unknown>(
     dbClient?: DbClient,
     permissionEngine?: PermissionEngine,
     options?: ExecuteOptions
-  ): Promise<ActionExecutionResult<unknown>> => {
+  ): Promise<ActionExecutionResult<unknown> | DelayedExecutionResult> => {
     const dryRun = options?.dryRun ?? false;
     const startedAt = new Date();
 
     // Early exit for autonomous mode - skip all tiering
     const riskMode = (config as any).riskMode ?? "guarded";
     if (riskMode === "autonomous") {
-      return executeImmediate(rawInput, ctx, dbClient, permissionEngine, config, startedAt, dryRun);
+      return executeImmediate(rawInput, ctx, dbClient, permissionEngine, config as ActionConfig<any, unknown>, startedAt, dryRun);
     }
 
     // Guarded mode - apply tiering
-    const tier = riskTier === "instant" ? "standard" : riskTier;
+    const tier = riskTier;
 
-    if (tier === "standard") {
-      return executeImmediate(rawInput, ctx, dbClient, permissionEngine, config, startedAt, dryRun);
+    if (tier === "instant") {
+      return executeImmediate(rawInput, ctx, dbClient, permissionEngine, config as ActionConfig<any, unknown>, startedAt, dryRun);
     }
 
     if (tier === "delayed") {
-      return executeDelayed(rawInput, ctx, dbClient, permissionEngine, config, startedAt);
+      return executeDelayed(rawInput, ctx, dbClient, permissionEngine, config as ActionConfig<any, unknown>, startedAt);
     }
 
     if (tier === "irreversible") {
-      return executeIrreversible(rawInput, ctx, dbClient, permissionEngine, config, startedAt);
+      return executeIrreversible(rawInput, ctx, dbClient, permissionEngine, config as ActionConfig<any, unknown>, startedAt);
     }
 
     // Fallback - should never reach here
-    return executeImmediate(rawInput, ctx, dbClient, permissionEngine, config, startedAt, dryRun);
+    return executeImmediate(rawInput, ctx, dbClient, permissionEngine, config as ActionConfig<any, unknown>, startedAt, dryRun);
   };
 
   const self: DefinedAction<TInput, TOutput> = {

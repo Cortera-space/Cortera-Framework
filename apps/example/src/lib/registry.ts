@@ -5,25 +5,19 @@ import {
   defineAction,
   InMemoryPermissionEngine,
   type DbClient,
-  type ActionContext,
   type InsertActionEvent,
   type ActorState,
   type InsertActorState,
-  type ListEventsOptions,
   type PaginatedResult,
-  type ActionEvent,
-  type ActionEventWithChain,
   type ContainedActor,
-  type PendingApprovalWithEvent,
-  type ListPendingApprovalsOptions,
-  type WorkspaceContact,
-  type WorkspaceContactResolver,
   type ActionApproval,
   type InsertPendingDelayedAction,
   type PendingDelayedAction,
   type ListPendingDelayedActionsOptions,
+  type WorkspaceContact,
+  type WorkspaceContactResolver,
 } from "@tera/core";
-import { resolveActorFromRequest, type ApiKeyMapping } from "@tera/adapter-next";
+import { resolveActorFromRequest } from "@tera/adapter-next";
 import { deleteWorkspaceAction } from "@/actions/deleteWorkspace";
 import { archiveNoteAction } from "@/actions/archiveNote";
 
@@ -463,6 +457,78 @@ class InMemoryDbClient implements DbClient {
         a.scheduledRunAt <= now
     );
   }
+
+  // Irreversible confirmation methods
+  private confirmations: Array<{
+    id: string;
+    actionEventId: string;
+    actionName: string;
+    input: unknown;
+    actorId: string;
+    workspaceId: string;
+    confirmationToken: string;
+    channel: string;
+    sentTo: string;
+    status: "pending" | "confirmed" | "expired" | "rejected";
+    expiresAt: Date;
+    confirmedAt: Date | null;
+    createdAt: Date;
+  }> = [];
+
+  async insertIrreversibleConfirmation(confirmation: {
+    actionEventId: string;
+    actionName: string;
+    input: unknown;
+    actorId: string;
+    workspaceId: string;
+    confirmationToken: string;
+    channel: string;
+    sentTo: string;
+    status: "pending" | "confirmed" | "expired" | "rejected";
+    expiresAt: Date;
+    confirmedAt: Date | null;
+  }): Promise<{ id: string }> {
+    const id = `confirmation-${this.confirmations.length + 1}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    this.confirmations.push({ ...confirmation, id, createdAt: new Date() });
+    return { id };
+  }
+
+  async findIrreversibleConfirmationByToken(token: string): Promise<any | null> {
+    return this.confirmations.find((c) => c.confirmationToken === token) ?? null;
+  }
+
+  async updateIrreversibleConfirmation(id: string, confirmation: Partial<any>): Promise<void> {
+    const existing = this.confirmations.find((c) => c.id === id);
+    if (existing) Object.assign(existing, confirmation);
+  }
+
+  async findPendingIrreversibleConfirmations(): Promise<any[]> {
+    const now = new Date();
+    return this.confirmations.filter((c) => c.status === "pending" && c.expiresAt >= now);
+  }
+
+  async findAllPendingIrreversibleConfirmations(): Promise<any[]> {
+    return this.confirmations.filter((c) => c.status === "pending");
+  }
+
+  async listPendingIrreversibleConfirmations(workspaceId: string): Promise<any[]> {
+    return this.confirmations
+      .filter((c) => c.status === "pending" && c.workspaceId === workspaceId)
+      .map((confirmation) => {
+        const event = this.events.find((e) => e.id === confirmation.actionEventId);
+        return {
+          confirmation: { ...confirmation },
+          event: {
+            actionName: event?.actionName ?? confirmation.actionName,
+            actorType: event?.actorType ?? "agent",
+            actorId: event?.actorId ?? confirmation.actorId,
+            input: event?.input ?? confirmation.input,
+            requestedAt: event?.startedAt ?? confirmation.createdAt,
+            expiresAt: confirmation.expiresAt,
+          },
+        };
+      });
+  }
 }
 
 export const dbClient = new InMemoryDbClient();
@@ -559,14 +625,14 @@ export const bulkDeleteRecordsAction = defineAction({
   },
 });
 
-registry.register(createNoteAction);
-registry.register(restrictedNoteAction);
-registry.register(notifyWatchersAction);
-registry.register(deleteAllCustomersAction);
-registry.register(deleteCustomerAction);
-registry.register(deleteWorkspaceAction);
-registry.register(archiveNoteAction);
-registry.register(bulkDeleteRecordsAction);
+registry.register(createNoteAction as any);
+registry.register(restrictedNoteAction as any);
+registry.register(notifyWatchersAction as any);
+registry.register(deleteAllCustomersAction as any);
+registry.register(deleteCustomerAction as any);
+registry.register(deleteWorkspaceAction as any);
+registry.register(archiveNoteAction as any);
+registry.register(bulkDeleteRecordsAction as any);
 
 export const defaultWorkspaceId = "default-workspace";
 
@@ -584,4 +650,4 @@ export const workspaceContactResolver: WorkspaceContactResolver = {
 
 (globalThis as any).__TERA_CONTACT_RESOLVER__ = workspaceContactResolver;
 
-export { resolveActorFromRequest, type ApiKeyMapping };
+export { resolveActorFromRequest };

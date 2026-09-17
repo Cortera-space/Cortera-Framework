@@ -5,7 +5,6 @@ import {
   InMemoryPermissionEngine,
   resolveApproval,
   type ActionContext,
-  type DbClient,
   type InsertActionEvent,
   type InsertActionApproval,
   type ListEventsOptions,
@@ -23,7 +22,7 @@ const makeCtx = (overrides?: Partial<ActionContext>): ActionContext => ({
   ...overrides,
 });
 
-class MockDbClient implements DbClient {
+class MockDbClient {
   public events: InsertActionEvent[] = [];
   public approvals: InsertActionApproval[] = [];
   private idMap = new Map<string, InsertActionEvent>();
@@ -118,8 +117,8 @@ async function main() {
     approvalTtlMs: 24 * 60 * 60 * 1000,
   });
 
-  registry.register(createNoteAction);
-  registry.register(deleteCustomerAction);
+  registry.register(createNoteAction as any);
+  registry.register(deleteCustomerAction as any);
 
   engine.addRule({ permissionKey: "notes.create", result: "allow" });
   engine.addRule({ permissionKey: "customers.delete", result: "approval_required" });
@@ -128,9 +127,9 @@ async function main() {
   const noteResult = await createNoteAction.execute(
     { title: "Hello", content: "World" },
     makeCtx(),
-    dbClient,
+    dbClient as any,
     engine
-  );
+  ) as { result: any; eventId: string };
   console.log("createNote result:", noteResult.result);
 
   console.log("\n=== Step 2: Delete customer (approval_required) ===");
@@ -139,7 +138,7 @@ async function main() {
     await deleteCustomerAction.execute(
       { id: "cust-123" },
       makeCtx(),
-      dbClient,
+      dbClient as any,
       engine
     );
   } catch (error) {
@@ -158,7 +157,7 @@ async function main() {
   if (!approvalId) {
     throw new Error("approvalId was not set");
   }
-  await resolveApproval(approvalId, "approved", "approver-1", dbClient, registry);
+  await resolveApproval(approvalId, "approved", "approver-1", dbClient as any, registry as any);
 
   const approvedEvent = dbClient.events.find((e) => e.actionName === "deleteCustomer");
   console.log("Event permissionResult after approval:", approvedEvent?.permissionResult);
