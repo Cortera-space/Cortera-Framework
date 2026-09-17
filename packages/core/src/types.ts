@@ -63,6 +63,16 @@ export class ActionPendingApprovalError extends Error {
   }
 }
 
+export class ActionPendingIrreversibleConfirmationError extends Error {
+  constructor(
+    message: string,
+    public readonly confirmationId: string
+  ) {
+    super(message);
+    this.name = "ActionPendingIrreversibleConfirmationError";
+  }
+}
+
 export type ActorStatus = "active" | "contained" | "revoked";
 
 export interface ActorState {
@@ -139,14 +149,21 @@ export interface InsertActionApproval {
   approvedBy: string | null;
 }
 
-export interface ActionConfig<TInput extends z.ZodTypeAny> {
+export type RiskTier = "standard" | "delayed" | "irreversible";
+
+export type RollbackFn<TOutput = unknown> = (output: TOutput, ctx: ActionContext) => Promise<void>;
+
+export interface ActionConfig<TInput extends z.ZodTypeAny, TOutput = unknown> {
   name: string;
   description: string;
   permission: string;
   inputSchema: TInput;
-  handler: (input: z.infer<TInput>, ctx: ActionContext) => Promise<unknown>;
+  handler: (input: z.infer<TInput>, ctx: ActionContext) => Promise<TOutput>;
   approvalTtlMs?: number;
   blastRadius?: string[];
+  riskTier?: RiskTier;
+  confirmationTtlMs?: number;
+  rollback?: RollbackFn<TOutput>;
 }
 
 export interface ActionResult<T = unknown> {
@@ -161,12 +178,16 @@ export interface DryRunResult {
 
 export type ActionExecutionResult<T = unknown> = ActionResult<T> | DryRunResult;
 
-export interface DefinedAction<TInput extends z.ZodTypeAny> {
+export interface DefinedAction<TInput extends z.ZodTypeAny, TOutput = unknown> {
   name: string;
   description: string;
   permission: string;
   input: TInput;
   blastRadius?: string[];
+  riskTier?: RiskTier;
+  confirmationTtlMs?: number;
+  rollback?: RollbackFn<TOutput>;
+  handler: (input: z.infer<TInput>, ctx: ActionContext) => Promise<TOutput>;
   execute(
     rawInput: unknown,
     ctx: ActionContext,
@@ -264,6 +285,59 @@ export interface InsertActionEvent {
   dryRun?: boolean;
 }
 
+export type IrreversibleConfirmationStatus = "pending" | "confirmed" | "expired" | "rejected";
+
+export interface IrreversibleConfirmation {
+  id: string;
+  actionEventId: string;
+  actionName: string;
+  input: unknown;
+  actorId: string;
+  workspaceId: string;
+  confirmationToken: string;
+  channel: string;
+  sentTo: string;
+  status: IrreversibleConfirmationStatus;
+  expiresAt: Date;
+  confirmedAt: Date | null;
+  createdAt: Date;
+}
+
+export interface InsertIrreversibleConfirmation {
+  actionEventId: string;
+  actionName: string;
+  input: unknown;
+  actorId: string;
+  workspaceId: string;
+  confirmationToken: string;
+  channel: string;
+  sentTo: string;
+  status: IrreversibleConfirmationStatus;
+  expiresAt: Date;
+  confirmedAt: Date | null;
+}
+
+export interface PendingIrreversibleConfirmationWithEvent {
+  confirmation: IrreversibleConfirmation;
+  event: {
+    actionName: string;
+    actorType: Actor["actorType"];
+    actorId: string;
+    input: unknown;
+    requestedAt: Date;
+    expiresAt: Date;
+  };
+}
+
+export interface WorkspaceContact {
+  channel: "email" | "sms";
+  destination: string;
+}
+
+export interface WorkspaceContactResolver {
+  getContact(workspaceId: string): Promise<WorkspaceContact | null>;
+}
+
 export interface DbClient {
   insertActionEvent(event: InsertActionEvent): Promise<{ id: string }>;
   updateActionEvent(id: string, event: Partial<InsertActionEvent>): Promise<void>;
@@ -279,4 +353,11 @@ export interface DbClient {
   getEventWithChain(eventId: string, includeDryRun?: boolean): Promise<ActionEventWithChain | null>;
   listContainedActors(workspaceId: string): Promise<ContainedActor[]>;
   listPendingApprovals(workspaceId: string, options?: ListPendingApprovalsOptions): Promise<PendingApprovalWithEvent[]>;
+
+  insertIrreversibleConfirmation(confirmation: InsertIrreversibleConfirmation): Promise<{ id: string }>;
+  findIrreversibleConfirmationByToken(token: string): Promise<IrreversibleConfirmation | null>;
+  updateIrreversibleConfirmation(id: string, confirmation: Partial<InsertIrreversibleConfirmation>): Promise<void>;
+  findPendingIrreversibleConfirmations(): Promise<IrreversibleConfirmation[]>;
+  findAllPendingIrreversibleConfirmations(): Promise<IrreversibleConfirmation[]>;
+  listPendingIrreversibleConfirmations(workspaceId: string): Promise<PendingIrreversibleConfirmationWithEvent[]>;
 }

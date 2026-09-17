@@ -14,4 +14,14 @@ export {
   reviewContainedActor,
   getActorState,
 } from "./containment";
+export {
+  requestIrreversibleConfirmation,
+  confirmIrreversibleConfirmation,
+  rejectIrreversibleConfirmation,
+  expirePendingIrreversibleConfirmations,
+} from "./irreversible-confirmation";
+export {
+  rollbackAction,
+  ActionRollbackError,
+} from "./rollback";
 export { InMemoryDbClient } from "./test-utils";

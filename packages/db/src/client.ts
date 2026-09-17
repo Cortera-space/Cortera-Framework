@@ -8,13 +8,15 @@ import type {
   ActorState,
   InsertActorState,
   ListEventsOptions,
-  ListEventsFilters,
   PaginatedResult,
   ActionEvent,
   ActionEventWithChain,
   ContainedActor,
   PendingApprovalWithEvent,
   ListPendingApprovalsOptions,
+  InsertIrreversibleConfirmation,
+  IrreversibleConfirmation,
+  PendingIrreversibleConfirmationWithEvent,
 } from "@tera/core";
 
 export type PostgresDbClientOptions = {
@@ -542,6 +544,192 @@ export class PostgresDbClient implements DbClient {
           input: event ? JSON.parse(event.input) : JSON.parse(approval.input),
           requestedAt: event ? new Date(event.started_at) : new Date(approval.requested_at),
           expiresAt: new Date(approval.expires_at),
+        },
+      };
+    });
+  }
+
+  async insertIrreversibleConfirmation(confirmation: InsertIrreversibleConfirmation): Promise<{ id: string }> {
+    const { rows } = await this.pool.query(
+      `INSERT INTO irreversible_confirmations (
+        action_event_id, action_name, input, actor_id, workspace_id,
+        confirmation_token, channel, sent_to, status, expires_at, confirmed_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      RETURNING id`,
+      [
+        confirmation.actionEventId,
+        confirmation.actionName,
+        JSON.stringify(confirmation.input),
+        confirmation.actorId,
+        confirmation.workspaceId,
+        confirmation.confirmationToken,
+        confirmation.channel,
+        confirmation.sentTo,
+        confirmation.status,
+        confirmation.expiresAt,
+        confirmation.confirmedAt,
+      ]
+    );
+    return { id: rows[0].id };
+  }
+
+  async findIrreversibleConfirmationByToken(token: string): Promise<IrreversibleConfirmation | null> {
+    const { rows } = await this.pool.query(
+      `SELECT id, action_event_id, action_name, input, actor_id, workspace_id,
+              confirmation_token, channel, sent_to, status, expires_at, confirmed_at, created_at
+       FROM irreversible_confirmations
+       WHERE confirmation_token = $1`,
+      [token]
+    );
+    if (rows.length === 0) {
+      return null;
+    }
+    const row = rows[0];
+    return {
+      id: row.id,
+      actionEventId: row.action_event_id,
+      actionName: row.action_name,
+      input: JSON.parse(row.input),
+      actorId: row.actor_id,
+      workspaceId: row.workspace_id,
+      confirmationToken: row.confirmation_token,
+      channel: row.channel,
+      sentTo: row.sent_to,
+      status: row.status as IrreversibleConfirmation["status"],
+      expiresAt: new Date(row.expires_at),
+      confirmedAt: row.confirmed_at ? new Date(row.confirmed_at) : null,
+      createdAt: new Date(row.created_at),
+    };
+  }
+
+  async updateIrreversibleConfirmation(id: string, confirmation: Partial<InsertIrreversibleConfirmation>): Promise<void> {
+    const setClauses: string[] = [];
+    const values: unknown[] = [];
+    let idx = 1;
+
+    if (confirmation.status !== undefined) {
+      setClauses.push(`status = $${idx++}`);
+      values.push(confirmation.status);
+    }
+    if (confirmation.confirmedAt !== undefined) {
+      setClauses.push(`confirmed_at = $${idx++}`);
+      values.push(confirmation.confirmedAt);
+    }
+    if (confirmation.channel !== undefined) {
+      setClauses.push(`channel = $${idx++}`);
+      values.push(confirmation.channel);
+    }
+    if (confirmation.sentTo !== undefined) {
+      setClauses.push(`sent_to = $${idx++}`);
+      values.push(confirmation.sentTo);
+    }
+
+    if (setClauses.length === 0) {
+      return;
+    }
+
+    values.push(id);
+    const sql = `UPDATE irreversible_confirmations SET ${setClauses.join(", ")} WHERE id = $${idx}`;
+    await this.pool.query(sql, values);
+  }
+
+  async findPendingIrreversibleConfirmations(): Promise<IrreversibleConfirmation[]> {
+    const { rows } = await this.pool.query(
+      `SELECT id, action_event_id, action_name, input, actor_id, workspace_id,
+              confirmation_token, channel, sent_to, status, expires_at, confirmed_at, created_at
+       FROM irreversible_confirmations
+       WHERE status = 'pending' AND expires_at >= now()`
+    );
+    return rows.map((row) => ({
+      id: row.id,
+      actionEventId: row.action_event_id,
+      actionName: row.action_name,
+      input: JSON.parse(row.input),
+      actorId: row.actor_id,
+      workspaceId: row.workspace_id,
+      confirmationToken: row.confirmation_token,
+      channel: row.channel,
+      sentTo: row.sent_to,
+      status: row.status as IrreversibleConfirmation["status"],
+      expiresAt: new Date(row.expires_at),
+      confirmedAt: row.confirmed_at ? new Date(row.confirmed_at) : null,
+      createdAt: new Date(row.created_at),
+    }));
+  }
+
+  async findAllPendingIrreversibleConfirmations(): Promise<IrreversibleConfirmation[]> {
+    const { rows } = await this.pool.query(
+      `SELECT id, action_event_id, action_name, input, actor_id, workspace_id,
+              confirmation_token, channel, sent_to, status, expires_at, confirmed_at, created_at
+       FROM irreversible_confirmations
+       WHERE status = 'pending'`
+    );
+    return rows.map((row) => ({
+      id: row.id,
+      actionEventId: row.action_event_id,
+      actionName: row.action_name,
+      input: JSON.parse(row.input),
+      actorId: row.actor_id,
+      workspaceId: row.workspace_id,
+      confirmationToken: row.confirmation_token,
+      channel: row.channel,
+      sentTo: row.sent_to,
+      status: row.status as IrreversibleConfirmation["status"],
+      expiresAt: new Date(row.expires_at),
+      confirmedAt: row.confirmed_at ? new Date(row.confirmed_at) : null,
+      createdAt: new Date(row.created_at),
+    }));
+  }
+
+  async listPendingIrreversibleConfirmations(workspaceId: string): Promise<PendingIrreversibleConfirmationWithEvent[]> {
+    const { rows: confirmationRows } = await this.pool.query(
+      `SELECT id, action_event_id, action_name, input, actor_id, workspace_id,
+              confirmation_token, channel, sent_to, status, expires_at, confirmed_at, created_at
+       FROM irreversible_confirmations
+       WHERE status = 'pending' AND workspace_id = $1`,
+      [workspaceId]
+    );
+
+    if (confirmationRows.length === 0) {
+      return [];
+    }
+
+    const eventIds = confirmationRows.map((r) => r.action_event_id);
+    const placeholders = eventIds.map((_, i) => `$${i + 1}`).join(",");
+    const { rows: eventRows } = await this.pool.query(
+      `SELECT id, action_name, actor_type, actor_id, input, started_at
+       FROM action_events
+       WHERE id IN (${placeholders})`,
+      eventIds
+    );
+
+    const eventMap = new Map(eventRows.map((r) => [r.id, r]));
+
+    return confirmationRows.map((confirmation) => {
+      const event = eventMap.get(confirmation.action_event_id);
+      return {
+        confirmation: {
+          id: confirmation.id,
+          actionEventId: confirmation.action_event_id,
+          actionName: confirmation.action_name,
+          input: JSON.parse(confirmation.input),
+          actorId: confirmation.actor_id,
+          workspaceId: confirmation.workspace_id,
+          confirmationToken: confirmation.confirmation_token,
+          channel: confirmation.channel,
+          sentTo: confirmation.sent_to,
+          status: confirmation.status as IrreversibleConfirmation["status"],
+          expiresAt: new Date(confirmation.expires_at),
+          confirmedAt: confirmation.confirmed_at ? new Date(confirmation.confirmed_at) : null,
+          createdAt: new Date(confirmation.created_at),
+        },
+        event: {
+          actionName: event?.action_name ?? confirmation.action_name,
+          actorType: (event?.actor_type ?? "agent") as "human" | "agent" | "system",
+          actorId: event?.actor_id ?? confirmation.actor_id,
+          input: event ? JSON.parse(event.input) : JSON.parse(confirmation.input),
+          requestedAt: event ? new Date(event.started_at) : new Date(confirmation.created_at),
+          expiresAt: new Date(confirmation.expires_at),
         },
       };
     });

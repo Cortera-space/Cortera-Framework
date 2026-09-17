@@ -1,31 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import {
   InMemoryDbClient,
-  type ActionEvent,
-  type ActionEventWithChain,
-  type ContainedActor,
-  type PendingApprovalWithEvent,
-  type ListEventsOptions,
-  type ListPendingApprovalsOptions,
 } from "@tera/core";
-
-function makeEvent(overrides: Partial<ActionEvent> = {}): ActionEvent {
-  return {
-    eventId: `event-${Math.random().toString(36).slice(2, 8)}`,
-    actionName: "testAction",
-    actorType: "agent",
-    actorId: "agent-1",
-    permissionResult: "allow",
-    status: "completed",
-    input: { test: true },
-    output: { result: "ok" },
-    error: null,
-    parentEventId: null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    ...overrides,
-  };
-}
 
 describe("InMemoryDbClient - Observability Queries", () => {
   let db: InMemoryDbClient;
@@ -331,7 +307,6 @@ describe("InMemoryDbClient - Observability Queries", () => {
         workspaceId: "ws-1",
         blastRadius: null,
       });
-      const c2Id = db.events[db.events.length - 1].id;
 
       await db.insertActionEvent({
         actionName: "grandchild",
