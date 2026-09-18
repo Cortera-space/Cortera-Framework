@@ -19,11 +19,13 @@ import {
   type DryRunResult,
   type PermissionEngine,
   type ExecuteOptions,
+  type BehavioralDriftConfig,
 } from "./types";
 import type { ActionConfig } from "./types";
 import { recordEvent, updateEvent } from "./event-log";
-import { checkActorContainment, checkBlastRadius } from "./containment";
+import { checkActorContainment, checkBlastRadius, containActorForBehavioralDrift } from "./containment";
 import { requestIrreversibleConfirmation } from "./irreversible-confirmation";
+import { runAllDetectors, DEFAULT_BEHAVIORAL_DRIFT_CONFIG } from "./behavioral-drift";
 
 async function runSchedulingChecks(
   dbClient: DbClient | undefined,
@@ -60,7 +62,8 @@ async function runFullChecks(
   dbClient: DbClient | undefined,
   ctx: ActionContext,
   action: DefinedAction<any>,
-  permissionEngine: PermissionEngine | undefined
+  permissionEngine: PermissionEngine | undefined,
+  config: ActionConfig<any, unknown>
 ): Promise<"allow" | "deny" | "approval_required"> {
   if (dbClient) {
     try {
@@ -73,6 +76,18 @@ async function runFullChecks(
     }
 
     await checkBlastRadius(dbClient, ctx, action);
+
+    // Behavioral drift detection (only if action has behavioralDriftConfig and dbClient supports it)
+    const driftConfig: BehavioralDriftConfig = (config as any).behavioralDriftConfig ?? DEFAULT_BEHAVIORAL_DRIFT_CONFIG;
+    const hasBehavioralDriftConfig = !!(config as any).behavioralDriftConfig;
+    const dbClientSupportsHistory = dbClient && typeof (dbClient as any).findActorCallHistory === "function";
+    
+    if (hasBehavioralDriftConfig && dbClientSupportsHistory) {
+      const driftMatches = await runAllDetectors(dbClient, ctx.actor.actorId, ctx.workspaceId, driftConfig, new Date(), config.permission);
+      if (driftMatches.length > 0) {
+        await containActorForBehavioralDrift(dbClient, ctx, action, driftMatches);
+      }
+    }
   }
 
   const permissionResult = permissionEngine
@@ -96,7 +111,7 @@ async function executeImmediate(
   startedAt: Date,
   dryRun: boolean
 ): Promise<ActionExecutionResult<unknown>> {
-  const permissionResult = await runFullChecks(dbClient, ctx, { name: config.name, permission: config.permission, blastRadius: config.blastRadius } as DefinedAction<any>, permissionEngine);
+  const permissionResult = await runFullChecks(dbClient, ctx, { name: config.name, permission: config.permission, blastRadius: config.blastRadius } as DefinedAction<any>, permissionEngine, config);
 
   if (permissionResult === "deny") {
     if (dbClient) {
@@ -641,6 +656,7 @@ export function defineAction<TInput extends z.ZodTypeAny, TOutput = unknown>(
     confirmationTtlMs,
     delayWindowMs: config.delayWindowMs,
     rollback: config.rollback,
+    behavioralDriftConfig: config.behavioralDriftConfig,
     handler: config.handler,
     execute,
   };

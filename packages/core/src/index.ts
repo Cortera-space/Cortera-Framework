@@ -29,3 +29,13 @@ export {
   ActionRollbackError,
 } from "./rollback";
 export { InMemoryDbClient } from "./test-utils";
+export {
+  computeBehaviorBaseline,
+  getOrComputeBaseline,
+  detectScopeWidening,
+  detectReconThenStrike,
+  detectDormantThenBurst,
+  runAllDetectors,
+  DEFAULT_BEHAVIORAL_DRIFT_CONFIG,
+} from "./behavioral-drift";
+export { DriftDetectorRegistry, defaultDriftDetectorRegistry } from "./drift-detector-registry";

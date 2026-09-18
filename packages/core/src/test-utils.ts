@@ -19,6 +19,9 @@ import type {
   InsertIrreversibleConfirmation,
   IrreversibleConfirmation,
   PendingIrreversibleConfirmationWithEvent,
+  ActorBehaviorBaseline,
+  InsertActorBehaviorBaseline,
+  ActorCallHistoryEntry,
 } from "./types";
 
 export class InMemoryDbClient implements DbClient {
@@ -27,6 +30,7 @@ export class InMemoryDbClient implements DbClient {
   private approvals: Array<ActionApproval> = [];
   public pendingDelayedActions: Array<PendingDelayedAction & { id: string }> = [];
   private confirmations: Array<IrreversibleConfirmation> = [];
+  public behaviorBaselines = new Map<string, ActorBehaviorBaseline>();
 
   async insertActionEvent(event: InsertActionEvent): Promise<{ id: string }> {
     const id = `event-${this.events.length + 1}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -92,6 +96,7 @@ export class InMemoryDbClient implements DbClient {
       status: state.status,
       containedAt: state.containedAt,
       containedReason: state.containedReason,
+      containmentReason: state.containmentReason,
       reviewedBy: state.reviewedBy,
       reviewedAt: state.reviewedAt,
     });
@@ -339,6 +344,7 @@ export class InMemoryDbClient implements DbClient {
           status: state.status,
           containedAt: state.containedAt ?? new Date(),
           containedReason: state.containedReason,
+          containmentReason: state.containmentReason,
           reviewedBy: state.reviewedBy,
           reviewedAt: state.reviewedAt,
         });
@@ -426,5 +432,42 @@ export class InMemoryDbClient implements DbClient {
         },
       };
     });
+  }
+
+  async findActorBehaviorBaseline(actorId: string, workspaceId: string): Promise<ActorBehaviorBaseline | null> {
+    return this.behaviorBaselines.get(`${actorId}:${workspaceId}`) ?? null;
+  }
+
+  async upsertActorBehaviorBaseline(baseline: InsertActorBehaviorBaseline): Promise<void> {
+    this.behaviorBaselines.set(`${baseline.actorId}:${baseline.workspaceId}`, baseline as ActorBehaviorBaseline);
+  }
+
+  async findActorCallHistory(
+    actorId: string,
+    workspaceId: string,
+    from: Date,
+    to?: Date,
+    limit?: number
+  ): Promise<ActorCallHistoryEntry[]> {
+    let filtered = this.events.filter(
+      (e) => e.workspaceId === workspaceId && e.actorId === actorId && e.startedAt >= from
+    );
+
+    if (to) {
+      filtered = filtered.filter((e) => e.startedAt <= to!);
+    }
+
+    filtered.sort((a, b) => a.startedAt.getTime() - b.startedAt.getTime());
+
+    if (limit) {
+      filtered = filtered.slice(0, limit);
+    }
+
+    return filtered.map((e) => ({
+      actionName: e.actionName,
+      permissionKey: (e.error as any)?.violatingPermission ?? e.actionName,
+      timestamp: e.startedAt,
+      permissionResult: e.permissionResult as ActorCallHistoryEntry["permissionResult"],
+    }));
   }
 }
