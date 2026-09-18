@@ -6,11 +6,13 @@ import type {
   InsertPendingDelayedAction,
   PendingDelayedAction,
   InsertActionEvent,
+  BehavioralDriftConfig,
 } from "./types";
 import { ActionContainmentError, ActionPermissionError, ActionValidationError } from "./types";
-import { checkActorContainment, checkBlastRadius } from "./containment";
+import { checkActorContainment, checkBlastRadius, containActorForBehavioralDrift } from "./containment";
 import { recordEvent, updateEvent } from "./event-log";
 import { computeOutputProvenance, resolveInputProvenance, recordOutputProvenance } from "./provenance";
+import { runAllDetectors, DEFAULT_BEHAVIORAL_DRIFT_CONFIG } from "./behavioral-drift";
 
 export async function cancelDelayedAction(
   dbClient: DbClient,
@@ -81,10 +83,22 @@ export async function processPendingDelayedActions(
       parentEventId: pending.actionEventId,
     };
 
-    // RE-RUN all checks (containment, blast radius, permission) at execution time
+    // RE-RUN all checks (containment, blast radius, permission, behavioral drift) at execution time
     try {
       await checkActorContainment(dbClient, ctx.actor, ctx.workspaceId);
       await checkBlastRadius(dbClient, ctx, action);
+
+      // Behavioral drift detection at execution time (only if action has behavioralDriftConfig and dbClient supports it)
+      const driftConfig: BehavioralDriftConfig = (action as any).behavioralDriftConfig ?? DEFAULT_BEHAVIORAL_DRIFT_CONFIG;
+      const hasBehavioralDriftConfig = !!(action as any).behavioralDriftConfig;
+      const dbClientSupportsHistory = dbClient && typeof (dbClient as any).findActorCallHistory === "function";
+      
+      if (hasBehavioralDriftConfig && dbClientSupportsHistory) {
+        const driftMatches = await runAllDetectors(dbClient, ctx.actor.actorId, ctx.workspaceId, driftConfig, new Date(), action.permission);
+        if (driftMatches.length > 0) {
+          await containActorForBehavioralDrift(dbClient, ctx, action, driftMatches);
+        }
+      }
     } catch (error) {
       if (error instanceof ActionContainmentError) {
         // Use the actual error code from the containment error

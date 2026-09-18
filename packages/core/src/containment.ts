@@ -6,6 +6,7 @@ import type {
   ActionEventLookup,
   DefinedAction,
   DbClient,
+  ContainmentReason,
 } from "./types";
 import { ActionContainmentError } from "./types";
 
@@ -58,9 +59,10 @@ export async function checkActorContainment(
   }
 
   const errorCode = state.status === "contained" ? "ACTOR_CONTAINED" : "ACTOR_REVOKED";
+  const containmentType = state.containmentReason ?? "unknown";
   const message =
     state.status === "contained"
-      ? `actor is contained: ${state.containedReason ?? "no reason provided"}`
+      ? `actor is contained (${containmentType}): ${state.containedReason ?? "no reason provided"}`
       : "actor is revoked";
 
   if (dbClient && !dryRun) {
@@ -70,7 +72,7 @@ export async function checkActorContainment(
       actorId: actor.actorId,
       input: null,
       output: null,
-      error: { code: errorCode, message },
+      error: { code: errorCode, message, containmentReason: containmentType },
       permissionResult: "deny" as const,
       approvedBy: null,
       parentEventId: null,
@@ -119,6 +121,7 @@ export async function checkBlastRadius(
       status: "contained",
       containedAt: now,
       containedReason: reason,
+      containmentReason: "blast_radius_violation",
       reviewedBy: null,
       reviewedAt: null,
     };
@@ -179,6 +182,7 @@ export async function reviewContainedActor(
       status: "revoked",
       containedAt: existing.containedAt,
       containedReason: existing.containedReason,
+      containmentReason: existing.containmentReason,
       reviewedBy: reviewerActorId,
       reviewedAt: new Date(),
     });
@@ -197,8 +201,67 @@ export async function reviewContainedActor(
       status: "active",
       containedAt: null,
       containedReason: null,
+      containmentReason: null,
       reviewedBy: reviewerActorId,
       reviewedAt: new Date(),
     });
   }
+}
+
+export async function containActorForBehavioralDrift(
+  dbClient: DbClient,
+  ctx: ActionContext,
+  action: DefinedAction<any>,
+  matches: Array<{ detector: string; explanation: string; severity: string }>,
+  dryRun = false
+): Promise<void> {
+  const reason = `behavioral drift detected: ${matches.map((m) => m.detector).join(", ")}`;
+  const detailedReason = matches.map((m) => `${m.detector}: ${m.explanation}`).join("; ");
+
+  if (!dryRun) {
+    const now = new Date();
+    const insertState: InsertActorState = {
+      actorId: ctx.actor.actorId,
+      workspaceId: ctx.workspaceId,
+      status: "contained",
+      containedAt: now,
+      containedReason: detailedReason,
+      containmentReason: "behavioral_drift",
+      reviewedBy: null,
+      reviewedAt: null,
+    };
+
+    await dbClient.upsertActorState(insertState);
+  }
+
+  const insertEvent = {
+    actionName: action.name,
+    actorType: ctx.actor.actorType,
+    actorId: ctx.actor.actorId,
+    input: null,
+    output: null,
+    error: {
+      code: "BEHAVIORAL_DRIFT_DETECTED",
+      message: reason,
+      detailedReason,
+      detectors: matches.map((m) => ({ detector: m.detector, explanation: m.explanation, severity: m.severity })),
+      dryRun,
+    },
+    permissionResult: "deny" as const,
+    approvedBy: null,
+    parentEventId: ctx.parentEventId,
+    startedAt: new Date(),
+    durationMs: null,
+    workspaceId: ctx.workspaceId,
+    blastRadius: action.blastRadius ?? null,
+    dryRun,
+  };
+
+  await dbClient.insertActionEvent(insertEvent as any);
+
+  throw new ActionContainmentError(
+    dryRun ? `would be contained (behavioral drift): ${reason}` : reason,
+    "BEHAVIORAL_DRIFT_DETECTED",
+    "deny"
+  );
 }
