@@ -266,15 +266,15 @@ function inferBlastRadius(toolName: string): string[] {
     return ["banking:*"];
   }
   
-  // Workspace tools
-  if (lower.includes("file") || lower.includes("read") || lower.includes("list") || lower.includes("get")) {
-    return ["workspace:read", "files:read"];
+  // Workspace tools - check delete/write before read
+  if (lower.includes("delete") || lower.includes("remove")) {
+    return ["workspace:delete", "files:delete"];
   }
   if (lower.includes("write") || lower.includes("create") || lower.includes("edit") || lower.includes("update")) {
     return ["workspace:write", "files:write"];
   }
-  if (lower.includes("delete") || lower.includes("remove")) {
-    return ["workspace:delete", "files:delete"];
+  if (lower.includes("file") || lower.includes("read") || lower.includes("list") || lower.includes("get")) {
+    return ["workspace:read", "files:read"];
   }
   
   // Slack tools
