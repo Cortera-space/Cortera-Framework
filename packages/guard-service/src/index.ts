@@ -266,6 +266,34 @@ function inferBlastRadius(toolName: string): string[] {
     return ["banking:*"];
   }
   
+  // Slack tools - check before workspace
+  if (lower.includes("slack") || lower.includes("channel") || lower.includes("message")) {
+    if (lower.includes("read") || lower.includes("list") || lower.includes("get") || lower.includes("view") || lower.includes("channel")) {
+      return ["slack:read"];
+    }
+    if (lower.includes("post") || lower.includes("send") || lower.includes("write") || lower.includes("message")) {
+      return ["slack:write"];
+    }
+    if (lower.includes("delete")) {
+      return ["slack:delete"];
+    }
+    return ["slack:*"];
+  }
+  
+  // Travel tools
+  if (lower.includes("travel") || lower.includes("flight") || lower.includes("itinerary") || lower.includes("book")) {
+    if (lower.includes("search") || lower.includes("list") || lower.includes("get") || lower.includes("view") || lower.includes("read")) {
+      return ["travel:read"];
+    }
+    if (lower.includes("book") || lower.includes("reserve") || lower.includes("create") || lower.includes("flight")) {
+      return ["travel:write"];
+    }
+    if (lower.includes("cancel")) {
+      return ["travel:delete"];
+    }
+    return ["travel:*"];
+  }
+  
   // Workspace tools - check delete/write before read
   if (lower.includes("delete") || lower.includes("remove")) {
     return ["workspace:delete", "files:delete"];
@@ -275,28 +303,6 @@ function inferBlastRadius(toolName: string): string[] {
   }
   if (lower.includes("file") || lower.includes("read") || lower.includes("list") || lower.includes("get")) {
     return ["workspace:read", "files:read"];
-  }
-  
-  // Slack tools
-  if (lower.includes("slack") && (lower.includes("read") || lower.includes("list") || lower.includes("get"))) {
-    return ["slack:read"];
-  }
-  if (lower.includes("slack") && (lower.includes("post") || lower.includes("send") || lower.includes("write"))) {
-    return ["slack:write"];
-  }
-  if (lower.includes("slack") && lower.includes("delete")) {
-    return ["slack:delete"];
-  }
-  
-  // Travel tools
-  if (lower.includes("travel") && (lower.includes("search") || lower.includes("list") || lower.includes("get"))) {
-    return ["travel:read"];
-  }
-  if (lower.includes("travel") && (lower.includes("book") || lower.includes("reserve") || lower.includes("create"))) {
-    return ["travel:write"];
-  }
-  if (lower.includes("travel") && lower.includes("cancel")) {
-    return ["travel:delete"];
   }
   
   // Generic fallbacks
