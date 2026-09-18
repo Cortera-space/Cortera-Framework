@@ -2,6 +2,7 @@ import { randomBytes } from "crypto";
 import {
   ActionPermissionError,
   ActionContainmentError,
+  TriggerReason,
 } from "./types";
 import type {
   DbClient,
@@ -13,6 +14,7 @@ import type {
   PermissionEngine,
 } from "./types";
 import { checkActorContainment, checkBlastRadius } from "./containment";
+import { computeOutputProvenance, resolveInputProvenance, recordOutputProvenance } from "./provenance";
 
 export interface WorkspaceContact {
   channel: "email" | "sms";
@@ -50,7 +52,9 @@ export async function requestIrreversibleConfirmation(
   workspaceId: string,
   dbClient: DbClient,
   contactResolver: WorkspaceContactResolver,
-  confirmationTtlMs: number = DEFAULT_CONFIRMATION_TTL_MS
+  confirmationTtlMs: number = DEFAULT_CONFIRMATION_TTL_MS,
+  triggerReason: TriggerReason = "declared_irreversible",
+  untrustedSourceInfo?: string
 ): Promise<{ status: "awaiting_confirmation"; confirmationId: string }> {
   const contact = await contactResolver.getContact(workspaceId);
   if (!contact) {
@@ -73,11 +77,12 @@ export async function requestIrreversibleConfirmation(
     status: "pending",
     expiresAt,
     confirmedAt: null,
+    triggerReason,
   };
 
   const { id: confirmationId } = await dbClient.insertIrreversibleConfirmation(insertConfirmation);
 
-  await sendConfirmation(contact, confirmationToken, action.name, expiresAt);
+  await sendConfirmation(contact, confirmationToken, action.name, expiresAt, triggerReason, untrustedSourceInfo);
 
   return { status: "awaiting_confirmation", confirmationId };
 }
@@ -86,13 +91,21 @@ async function sendConfirmation(
   contact: WorkspaceContact,
   token: string,
   actionName: string,
-  expiresAt: Date
+  expiresAt: Date,
+  triggerReason: TriggerReason = "declared_irreversible",
+  untrustedSourceInfo?: string
 ): Promise<void> {
   const confirmUrl = `${process.env.TERA_CONFIRMATION_BASE_URL || "https://app.example.com"}/confirm/${token}`;
-  const message = `Please confirm the irreversible action "${actionName}" by clicking: ${confirmUrl}\nThis link expires at ${expiresAt.toISOString()}.`;
+  
+  let message: string;
+  if (triggerReason === "untrusted_provenance") {
+    message = `SECURITY ALERT: Action "${actionName}" requires confirmation because its input traces back to untrusted content.\n\nUntrusted source: ${untrustedSourceInfo ?? "unknown external source"}\n\nThis action was flagged because it would normally execute instantly, but its input data originated from content the agent read (tool output, API response, etc.) rather than direct human instruction.\n\nPlease review carefully before confirming.\n\nConfirm by clicking: ${confirmUrl}\nThis link expires at ${expiresAt.toISOString()}.`;
+  } else {
+    message = `Please confirm the irreversible action "${actionName}" by clicking: ${confirmUrl}\nThis link expires at ${expiresAt.toISOString()}.`;
+  }
 
   if (contact.channel === "email") {
-    await sendEmail(contact.destination, `Confirm irreversible action: ${actionName}`, message);
+    await sendEmail(contact.destination, `Confirm action: ${actionName} (${triggerReason})`, message);
   } else if (contact.channel === "sms") {
     await sendSms(contact.destination, message);
   }
@@ -234,6 +247,12 @@ export async function confirmIrreversibleConfirmation(
   });
 
   const startedAt = new Date();
+  
+  // Resolve input provenance for output computation
+  let inputProvenance: Map<string, "trusted" | "untrusted-external"> = new Map();
+  const rawInputObj = confirmation.input as Record<string, unknown> ?? {};
+  inputProvenance = await resolveInputProvenance(dbClient, confirmation.actionEventId, rawInputObj);
+
   try {
     // Directly call the handler to avoid re-entering the execute flow
     const handlerResult = await action.handler(confirmation.input, ctx);
@@ -244,6 +263,10 @@ export async function confirmIrreversibleConfirmation(
       output: handlerResult,
       durationMs,
     });
+
+    // Compute and record output provenance
+    const outputLabel = computeOutputProvenance(inputProvenance, action.sanitizes ?? false);
+    await recordOutputProvenance(dbClient, confirmation.actionEventId, outputLabel, ctx.parentEventId ?? null);
 
     return { result: handlerResult, eventId: confirmation.actionEventId };
   } catch (error) {

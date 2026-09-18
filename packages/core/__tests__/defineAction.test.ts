@@ -29,6 +29,9 @@ class MockDbClient implements DbClient {
   async findEventById(_id: string): Promise<any | null> { return null; }
   async findActorState(_actorId: string, _workspaceId: string): Promise<any | null> { return null; }
   async upsertActorState(_state: any): Promise<void> {}
+  async insertDataProvenance(_provenance: any): Promise<{ id: string }> { return { id: "prov-1" }; }
+  async findDataProvenanceByEventId(_eventId: string): Promise<any[]> { return []; }
+  async getProvenanceTrace(_eventId: string): Promise<any | null> { return null; }
 }
 
 describe("defineAction", () => {

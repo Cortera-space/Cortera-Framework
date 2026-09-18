@@ -287,3 +287,84 @@ route (`POST /actions/[actionName]`).
 An optional `dryRun` boolean is automatically injected into every
 generated tool's input schema (framework-level capability, not
 per-Action).
+
+---
+
+## 12. Trust Propagation & Data Provenance (Stage 14)
+
+### Trust Labels
+
+Every piece of data flowing through the system carries a trust label:
+- **`trusted`** — data originating from authenticated, authorized actors within the system
+- **`untrusted-external`** — data originating from external tools, APIs, or unverified sources
+
+### ActionConfig Extension
+
+`ActionConfig` has an optional `sanitizes?: boolean` field. When `true`, this Action's output is treated as `trusted` regardless of input taint, because the Action author asserts the handler genuinely validates/cleans the data (e.g., an Action whose entire job is validating an external API response against a strict allowlist). Default is `false` — taint propagates through by default, sanitization is opt-in and the author is asserting a real guarantee.
+
+### Provenance Propagation Rules
+
+Trust labels propagate through causal chains: an Action's output is labeled `untrusted-external` if any contributing input was `untrusted-external` — taint is contagious downstream, never automatically cleaned by passing through a handler. An Action author may explicitly mark specific outputs as re-trusted via a `sanitizes: true` declaration ONLY when the handler performs a genuine validation/sanitization step — this must be an explicit, deliberate opt-in per Action, never a default.
+
+**Propagation Algorithm:**
+1. If `actionConfig.sanitizes === true`: output is `trusted` regardless of input labels
+2. Otherwise: if ANY input field's provenance is `untrusted-external`, the output is `untrusted-external`
+3. Only if ALL inputs are `trusted` is the output `trusted`
+
+### Data Provenance Storage
+
+Provenance is recorded in a `data_provenance` table linked to `action_events`:
+
+```sql
+CREATE TABLE data_provenance (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id uuid NOT NULL REFERENCES action_events(id) ON DELETE CASCADE,
+  field_path text NOT NULL,           -- e.g., "output", "input.fieldName"
+  label text NOT NULL CHECK (label IN ('trusted', 'untrusted-external')),
+  source_event_id uuid REFERENCES action_events(id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+```
+
+Each Action execution records one `data_provenance` row for its **output** (field_path = "output"), capturing:
+- The computed trust label
+- The `source_event_id` (the parent event that provided the input, if any)
+
+### Automatic Input Resolution
+
+When a downstream Action calls a prior Action's output as its input (via the existing `ctx.withParent()` chaining mechanism), the input field's provenance is **automatically resolved** from the parent event's output-provenance record — no manual redeclaration required by the caller. This makes propagation automatic across multi-hop chains.
+
+### Provenance Trace Query
+
+`getProvenanceTrace(eventId)` returns the full chain of provenance decisions leading to a given event:
+- Which upstream event(s) contributed untrusted data
+- Whether any intermediate Action sanitized the data (`isSanitized: true`)
+- The complete causal chain from source to target
+
+This is inspectable/debuggable the same way the action chain itself is inspectable via `getEventWithChain`.
+
+### Sanitization Does Not Rewrite History
+
+When an Action with `sanitizes: true` cleans taint:
+- Its output becomes `trusted` for downstream propagation
+- **Upstream provenance records remain unchanged** — the original `untrusted-external` source is still recorded in history
+- `getProvenanceTrace` shows both the original taint and the sanitization point
+
+### Enforcement (Stage 14c)
+
+Before executing any Action (after containment and permission checks from Stages 3/3.5), Tera checks the resolved input provenance (Stage 14a/14b). If the call's provenance is `untrusted-external` — meaning some or all of its input traces back to content the agent read rather than a human instructed — and the actor's riskMode is `guarded`, the call is forced through out-of-band confirmation REGARDLESS of the Action's own declared riskTier (even an `instant`-tier Action gets escalated). In `autonomous` riskMode, taint labels are still recorded and visible in the trace, but do NOT block execution — autonomous mode's explicit tradeoff already accepted Blast Radius as the sole backstop, and taint enforcement respects that choice rather than silently overriding it.
+
+**Enforcement Algorithm:**
+1. After permission checks pass, resolve input provenance using Stage 14a/14b logic
+2. If ANY resolved input field is `untrusted-external` AND actor's riskMode is `guarded`:
+   - Override the Action's own riskTier and route through the SAME out-of-band confirmation mechanism as an `irreversible`-tier Action (reuse `requestIrreversibleConfirmation`, do not build a parallel confirmation system)
+   - Tag the confirmation record with `trigger_reason: 'untrusted_provenance'` (vs `'declared_irreversible'` for Actions that declare themselves irreversible)
+   - The confirmation notification includes a clear explanation of WHAT untrusted source triggered this — surfacing the specific `source_type`/`source_identifier` from the provenance chain (e.g., "This action's input traces back to content read from tool: web_fetch")
+3. If riskMode is `autonomous`: skip this check entirely, taint is recorded (already done in 14a/14b) but does not block
+
+**Trigger Reason Precedence:**
+When an Action is BOTH declared `irreversible` AND has untrusted input, the `trigger_reason` is set to `'declared_irreversible'` — the declared irreversibility takes precedence as it represents an explicit design decision by the Action author. The `untrusted_provenance` reason is used only for Actions that would otherwise run instantly but are escalated solely due to taint.
+
+**Observability Extensions:**
+- `listEvents` and `getEventWithChain` now include `provenanceLabel` (the computed output trust label) and `triggerReason` (if a taint-triggered confirmation occurred) in each event
+- This allows a developer's self-built dashboard to surface "this call was flagged for untrusted provenance" distinctly from other confirmation reasons

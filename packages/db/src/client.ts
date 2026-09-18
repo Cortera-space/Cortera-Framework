@@ -20,6 +20,11 @@ import type {
   InsertIrreversibleConfirmation,
   IrreversibleConfirmation,
   PendingIrreversibleConfirmationWithEvent,
+  DataProvenance,
+  InsertDataProvenance,
+  ProvenanceTrace,
+  ProvenanceTraceEntry,
+  ProvenanceLabel,
 } from "@tera/core";
 
 export type PostgresDbClientOptions = {
@@ -335,12 +340,25 @@ export class PostgresDbClient implements DbClient {
 
     const whereClause = conditions.join(" AND ");
     const sql = `
-      SELECT id, action_name, actor_type, actor_id, input, output, error,
-             permission_result, approved_by, parent_event_id,
-             started_at, duration_ms, workspace_id, blast_radius, dry_run
-      FROM action_events
+      SELECT 
+        ae.id, ae.action_name, ae.actor_type, ae.actor_id, ae.input, ae.output, ae.error,
+        ae.permission_result, ae.approved_by, ae.parent_event_id,
+        ae.started_at, ae.duration_ms, ae.workspace_id, ae.blast_radius, ae.dry_run,
+        dp.label as provenance_label,
+        ic.trigger_reason
+      FROM action_events ae
+      LEFT JOIN LATERAL (
+        SELECT label FROM data_provenance 
+        WHERE event_id = ae.id AND field_path = 'output'
+        ORDER BY created_at DESC LIMIT 1
+      ) dp ON true
+      LEFT JOIN LATERAL (
+        SELECT trigger_reason FROM irreversible_confirmations
+        WHERE action_event_id = ae.id
+        ORDER BY created_at DESC LIMIT 1
+      ) ic ON true
       WHERE ${whereClause}
-      ORDER BY started_at DESC
+      ORDER BY ae.started_at DESC
       LIMIT $${idx}
     `;
     values.push(limit + 1);
@@ -360,6 +378,8 @@ export class PostgresDbClient implements DbClient {
       createdAt: new Date(row.started_at),
       updatedAt: new Date(row.started_at),
       dryRun: row.dry_run,
+      provenanceLabel: row.provenance_label as ProvenanceLabel | undefined,
+      triggerReason: row.trigger_reason as TriggerReason | undefined,
     }));
 
     const nextCursor = rows.length > limit ? rows[limit - 1].started_at.toISOString() : null;
@@ -391,6 +411,8 @@ export class PostgresDbClient implements DbClient {
         createdAt: new Date(row.started_at),
         updatedAt: new Date(row.started_at),
         dryRun: row.dry_run,
+        provenanceLabel: row.provenance_label as ProvenanceLabel | undefined,
+        triggerReason: row.trigger_reason as TriggerReason | undefined,
         ancestors: [],
         descendants: [],
       });
@@ -419,11 +441,24 @@ export class PostgresDbClient implements DbClient {
 
     while (currentId) {
       const { rows: result } = await this.pool.query(
-        `SELECT id, action_name, actor_type, actor_id, input, output, error,
-                permission_result, approved_by, parent_event_id,
-                started_at, duration_ms, workspace_id, blast_radius, dry_run
-         FROM action_events
-         WHERE id = $1${includeDryRun ? "" : " AND dry_run = false"}`,
+        `SELECT 
+           ae.id, ae.action_name, ae.actor_type, ae.actor_id, ae.input, ae.output, ae.error,
+           ae.permission_result, ae.approved_by, ae.parent_event_id,
+           ae.started_at, ae.duration_ms, ae.workspace_id, ae.blast_radius, ae.dry_run,
+           dp.label as provenance_label,
+           ic.trigger_reason
+         FROM action_events ae
+         LEFT JOIN LATERAL (
+           SELECT label FROM data_provenance 
+           WHERE event_id = ae.id AND field_path = 'output'
+           ORDER BY created_at DESC LIMIT 1
+         ) dp ON true
+         LEFT JOIN LATERAL (
+           SELECT trigger_reason FROM irreversible_confirmations
+           WHERE action_event_id = ae.id
+           ORDER BY created_at DESC LIMIT 1
+         ) ic ON true
+         WHERE ae.id = $1${includeDryRun ? "" : " AND ae.dry_run = false"}`,
         [currentId]
       );
       if (result.length === 0) break;
@@ -441,12 +476,25 @@ export class PostgresDbClient implements DbClient {
     while (stack.length > 0) {
       const parentId = stack.pop()!;
       const { rows: result } = await this.pool.query(
-        `SELECT id, action_name, actor_type, actor_id, input, output, error,
-                permission_result, approved_by, parent_event_id,
-                started_at, duration_ms, workspace_id, blast_radius, dry_run
-         FROM action_events
-         WHERE parent_event_id = $1${includeDryRun ? "" : " AND dry_run = false"}
-         ORDER BY started_at ASC`,
+        `SELECT 
+           ae.id, ae.action_name, ae.actor_type, ae.actor_id, ae.input, ae.output, ae.error,
+           ae.permission_result, ae.approved_by, ae.parent_event_id,
+           ae.started_at, ae.duration_ms, ae.workspace_id, ae.blast_radius, ae.dry_run,
+           dp.label as provenance_label,
+           ic.trigger_reason
+         FROM action_events ae
+         LEFT JOIN LATERAL (
+           SELECT label FROM data_provenance 
+           WHERE event_id = ae.id AND field_path = 'output'
+           ORDER BY created_at DESC LIMIT 1
+         ) dp ON true
+         LEFT JOIN LATERAL (
+           SELECT trigger_reason FROM irreversible_confirmations
+           WHERE action_event_id = ae.id
+           ORDER BY created_at DESC LIMIT 1
+         ) ic ON true
+         WHERE ae.parent_event_id = $1${includeDryRun ? "" : " AND ae.dry_run = false"}
+         ORDER BY ae.started_at ASC`,
         [parentId]
       );
       for (const row of result) {
@@ -719,8 +767,8 @@ export class PostgresDbClient implements DbClient {
     const { rows } = await this.pool.query(
       `INSERT INTO irreversible_confirmations (
         action_event_id, action_name, input, actor_id, workspace_id,
-        confirmation_token, channel, sent_to, status, expires_at, confirmed_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        confirmation_token, channel, sent_to, status, expires_at, confirmed_at, trigger_reason
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
       RETURNING id`,
       [
         confirmation.actionEventId,
@@ -734,6 +782,7 @@ export class PostgresDbClient implements DbClient {
         confirmation.status,
         confirmation.expiresAt,
         confirmation.confirmedAt,
+        confirmation.triggerReason,
       ]
     );
     return { id: rows[0].id };
@@ -742,7 +791,7 @@ export class PostgresDbClient implements DbClient {
   async findIrreversibleConfirmationByToken(token: string): Promise<IrreversibleConfirmation | null> {
     const { rows } = await this.pool.query(
       `SELECT id, action_event_id, action_name, input, actor_id, workspace_id,
-              confirmation_token, channel, sent_to, status, expires_at, confirmed_at, created_at
+              confirmation_token, channel, sent_to, status, expires_at, confirmed_at, created_at, trigger_reason
        FROM irreversible_confirmations
        WHERE confirmation_token = $1`,
       [token]
@@ -765,6 +814,7 @@ export class PostgresDbClient implements DbClient {
       expiresAt: new Date(row.expires_at),
       confirmedAt: row.confirmed_at ? new Date(row.confirmed_at) : null,
       createdAt: new Date(row.created_at),
+      triggerReason: row.trigger_reason as TriggerReason,
     };
   }
 
@@ -789,6 +839,10 @@ export class PostgresDbClient implements DbClient {
       setClauses.push(`sent_to = $${idx++}`);
       values.push(confirmation.sentTo);
     }
+    if (confirmation.triggerReason !== undefined) {
+      setClauses.push(`trigger_reason = $${idx++}`);
+      values.push(confirmation.triggerReason);
+    }
 
     if (setClauses.length === 0) {
       return;
@@ -802,7 +856,7 @@ export class PostgresDbClient implements DbClient {
   async findPendingIrreversibleConfirmations(): Promise<IrreversibleConfirmation[]> {
     const { rows } = await this.pool.query(
       `SELECT id, action_event_id, action_name, input, actor_id, workspace_id,
-              confirmation_token, channel, sent_to, status, expires_at, confirmed_at, created_at
+              confirmation_token, channel, sent_to, status, expires_at, confirmed_at, created_at, trigger_reason
        FROM irreversible_confirmations
        WHERE status = 'pending' AND expires_at >= now()`
     );
@@ -820,13 +874,14 @@ export class PostgresDbClient implements DbClient {
       expiresAt: new Date(row.expires_at),
       confirmedAt: row.confirmed_at ? new Date(row.confirmed_at) : null,
       createdAt: new Date(row.created_at),
+      triggerReason: row.trigger_reason as TriggerReason,
     }));
   }
 
   async findAllPendingIrreversibleConfirmations(): Promise<IrreversibleConfirmation[]> {
     const { rows } = await this.pool.query(
       `SELECT id, action_event_id, action_name, input, actor_id, workspace_id,
-              confirmation_token, channel, sent_to, status, expires_at, confirmed_at, created_at
+              confirmation_token, channel, sent_to, status, expires_at, confirmed_at, created_at, trigger_reason
        FROM irreversible_confirmations
        WHERE status = 'pending'`
     );
@@ -844,13 +899,14 @@ export class PostgresDbClient implements DbClient {
       expiresAt: new Date(row.expires_at),
       confirmedAt: row.confirmed_at ? new Date(row.confirmed_at) : null,
       createdAt: new Date(row.created_at),
+      triggerReason: row.trigger_reason as TriggerReason,
     }));
   }
 
   async listPendingIrreversibleConfirmations(workspaceId: string): Promise<PendingIrreversibleConfirmationWithEvent[]> {
     const { rows: confirmationRows } = await this.pool.query(
       `SELECT id, action_event_id, action_name, input, actor_id, workspace_id,
-              confirmation_token, channel, sent_to, status, expires_at, confirmed_at, created_at
+              confirmation_token, channel, sent_to, status, expires_at, confirmed_at, created_at, trigger_reason
        FROM irreversible_confirmations
        WHERE status = 'pending' AND workspace_id = $1`,
       [workspaceId]
@@ -888,6 +944,7 @@ export class PostgresDbClient implements DbClient {
           expiresAt: new Date(confirmation.expires_at),
           confirmedAt: confirmation.confirmed_at ? new Date(confirmation.confirmed_at) : null,
           createdAt: new Date(confirmation.created_at),
+          triggerReason: confirmation.trigger_reason as TriggerReason,
         },
         event: {
           actionName: event?.action_name ?? confirmation.action_name,
@@ -899,6 +956,105 @@ export class PostgresDbClient implements DbClient {
         },
       };
     });
+  }
+
+  async insertDataProvenance(provenance: InsertDataProvenance): Promise<{ id: string }> {
+    const { rows } = await this.pool.query(
+      `INSERT INTO data_provenance (event_id, field_path, label, source_event_id)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id`,
+      [provenance.eventId, provenance.fieldPath, provenance.label, provenance.sourceEventId]
+    );
+    return { id: rows[0].id };
+  }
+
+  async findDataProvenanceByEventId(eventId: string): Promise<DataProvenance[]> {
+    const { rows } = await this.pool.query(
+      `SELECT id, event_id, field_path, label, source_event_id, created_at
+       FROM data_provenance
+       WHERE event_id = $1
+       ORDER BY created_at ASC`,
+      [eventId]
+    );
+    return rows.map((row) => ({
+      id: row.id,
+      eventId: row.event_id,
+      fieldPath: row.field_path,
+      label: row.label as ProvenanceLabel,
+      sourceEventId: row.source_event_id,
+      createdAt: new Date(row.created_at),
+    }));
+  }
+
+  async getProvenanceTrace(eventId: string): Promise<ProvenanceTrace | null> {
+    // First check if the event exists
+    const eventCheck = await this.pool.query(
+      `SELECT id FROM action_events WHERE id = $1`,
+      [eventId]
+    );
+    if (eventCheck.rows.length === 0) {
+      return null;
+    }
+
+    // Get the output provenance for this event
+    const outputProvenanceRows = await this.pool.query(
+      `SELECT id, event_id, field_path, label, source_event_id, created_at
+       FROM data_provenance
+       WHERE event_id = $1 AND field_path = 'output'
+       ORDER BY created_at ASC`,
+      [eventId]
+    );
+
+    const outputProvenance = outputProvenanceRows.rows.map((row) => ({
+      id: row.id,
+      eventId: row.event_id,
+      fieldPath: row.field_path,
+      label: row.label as ProvenanceLabel,
+      sourceEventId: row.source_event_id,
+      createdAt: new Date(row.created_at),
+    }));
+
+    const outputLabel = outputProvenance[0]?.label ?? "trusted";
+
+    // Recursively build the trace by following source_event_id chain
+    const trace: ProvenanceTraceEntry[] = [];
+    await this.buildProvenanceTrace(eventId, trace);
+
+    return {
+      eventId,
+      outputLabel,
+      trace,
+    };
+  }
+
+  private async buildProvenanceTrace(eventId: string, trace: ProvenanceTraceEntry[]): Promise<void> {
+    // Get all provenance records for this event
+    const provenanceRows = await this.pool.query(
+      `SELECT dp.id, dp.event_id, dp.field_path, dp.label, dp.source_event_id, dp.created_at,
+              ae.action_name
+       FROM data_provenance dp
+       JOIN action_events ae ON dp.event_id = ae.id
+       WHERE dp.event_id = $1
+       ORDER BY dp.created_at ASC`,
+      [eventId]
+    );
+
+    for (const row of provenanceRows.rows) {
+      const entry: ProvenanceTraceEntry = {
+        eventId: row.event_id,
+        actionName: row.action_name,
+        fieldPath: row.field_path,
+        label: row.label as ProvenanceLabel,
+        sourceEventId: row.source_event_id,
+        isSanitized: row.label === "trusted" && row.source_event_id !== null,
+      };
+      trace.push(entry);
+
+      // Always follow the chain if there's a source event to show full history
+      if (row.source_event_id) {
+        await this.buildProvenanceTrace(row.source_event_id, trace);
+      }
+    }
   }
 
   async close(): Promise<void> {

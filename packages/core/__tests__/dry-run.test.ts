@@ -282,6 +282,10 @@ class MockDbClient implements DbClient {
   ): Promise<any[]> {
     return [];
   }
+
+  async insertDataProvenance(_provenance: any): Promise<{ id: string }> { return { id: "prov-1" }; }
+  async findDataProvenanceByEventId(_eventId: string): Promise<any[]> { return []; }
+  async getProvenanceTrace(_eventId: string): Promise<any | null> { return null; }
 }
 
 describe("dry-run execution", () => {

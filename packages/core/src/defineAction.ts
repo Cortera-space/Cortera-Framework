@@ -19,12 +19,14 @@ import {
   type DryRunResult,
   type PermissionEngine,
   type ExecuteOptions,
+  type ActionConfig,
+  type TriggerReason,
   type BehavioralDriftConfig,
 } from "./types";
-import type { ActionConfig } from "./types";
 import { recordEvent, updateEvent } from "./event-log";
 import { checkActorContainment, checkBlastRadius, containActorForBehavioralDrift } from "./containment";
 import { requestIrreversibleConfirmation } from "./irreversible-confirmation";
+import { computeOutputProvenance, resolveInputProvenance, recordOutputProvenance, hasUntrustedInput, getUntrustedSourceInfo } from "./provenance";
 import { runAllDetectors, DEFAULT_BEHAVIORAL_DRIFT_CONFIG } from "./behavioral-drift";
 
 async function runSchedulingChecks(
@@ -63,11 +65,12 @@ async function runFullChecks(
   ctx: ActionContext,
   action: DefinedAction<any>,
   permissionEngine: PermissionEngine | undefined,
-  config: ActionConfig<any, unknown>
+  dryRun = false,
+  config?: ActionConfig<any, unknown>
 ): Promise<"allow" | "deny" | "approval_required"> {
   if (dbClient) {
     try {
-      await checkActorContainment(dbClient, ctx.actor, ctx.workspaceId);
+      await checkActorContainment(dbClient, ctx.actor, ctx.workspaceId, dryRun);
     } catch (error) {
       if (error instanceof ActionContainmentError) {
         throw error;
@@ -75,17 +78,19 @@ async function runFullChecks(
       throw error;
     }
 
-    await checkBlastRadius(dbClient, ctx, action);
+    await checkBlastRadius(dbClient, ctx, action, dryRun);
 
     // Behavioral drift detection (only if action has behavioralDriftConfig and dbClient supports it)
-    const driftConfig: BehavioralDriftConfig = (config as any).behavioralDriftConfig ?? DEFAULT_BEHAVIORAL_DRIFT_CONFIG;
-    const hasBehavioralDriftConfig = !!(config as any).behavioralDriftConfig;
-    const dbClientSupportsHistory = dbClient && typeof (dbClient as any).findActorCallHistory === "function";
-    
-    if (hasBehavioralDriftConfig && dbClientSupportsHistory) {
-      const driftMatches = await runAllDetectors(dbClient, ctx.actor.actorId, ctx.workspaceId, driftConfig, new Date(), config.permission);
-      if (driftMatches.length > 0) {
-        await containActorForBehavioralDrift(dbClient, ctx, action, driftMatches);
+    if (config) {
+      const driftConfig: BehavioralDriftConfig = (config as any).behavioralDriftConfig ?? DEFAULT_BEHAVIORAL_DRIFT_CONFIG;
+      const hasBehavioralDriftConfig = !!(config as any).behavioralDriftConfig;
+      const dbClientSupportsHistory = dbClient && typeof (dbClient as any).findActorCallHistory === "function";
+
+      if (hasBehavioralDriftConfig && dbClientSupportsHistory) {
+        const driftMatches = await runAllDetectors(dbClient, ctx.actor.actorId, ctx.workspaceId, driftConfig, new Date(), config.permission);
+        if (driftMatches.length > 0) {
+          await containActorForBehavioralDrift(dbClient, ctx, action, driftMatches);
+        }
       }
     }
   }
@@ -109,9 +114,10 @@ async function executeImmediate(
   permissionEngine: PermissionEngine | undefined,
   config: ActionConfig<any, unknown>,
   startedAt: Date,
-  dryRun: boolean
+  dryRun: boolean,
+  riskMode?: string
 ): Promise<ActionExecutionResult<unknown>> {
-  const permissionResult = await runFullChecks(dbClient, ctx, { name: config.name, permission: config.permission, blastRadius: config.blastRadius } as DefinedAction<any>, permissionEngine, config);
+  const permissionResult = await runFullChecks(dbClient, ctx, { name: config.name, permission: config.permission, blastRadius: config.blastRadius } as DefinedAction<any>, permissionEngine, dryRun, config);
 
   if (permissionResult === "deny") {
     if (dbClient) {
@@ -228,6 +234,13 @@ async function executeImmediate(
 
   let eventId: string | undefined;
 
+  // Resolve input provenance from parent event
+  let inputProvenance: Map<string, "trusted" | "untrusted-external"> = new Map();
+  if (dbClient) {
+    const rawInputObj = rawInput as Record<string, unknown> ?? {};
+    inputProvenance = await resolveInputProvenance(dbClient, ctx.parentEventId, rawInputObj);
+  }
+
   if (dbClient) {
     const insertEvent: InsertActionEvent = {
       actionName: config.name,
@@ -253,6 +266,45 @@ async function executeImmediate(
     return { wouldSucceed: true as const, eventId };
   }
 
+  // Taint enforcement check (Stage 14c): if any input is untrusted-external and riskMode is guarded,
+  // force through out-of-band confirmation like an irreversible action
+  // EXCEPTION: if the action has sanitizes: true, it can clean the taint and execute without confirmation
+  const effectiveRiskMode = riskMode ?? (config as any).riskMode ?? "guarded";
+  if (effectiveRiskMode === "guarded" && hasUntrustedInput(inputProvenance) && !config.sanitizes) {
+    if (!dbClient || !eventId) {
+      throw new Error("Taint enforcement requires dbClient and eventId");
+    }
+
+    // Get untrusted source info for the confirmation notification
+    const untrustedSourceInfo = await getUntrustedSourceInfo(dbClient, inputProvenance);
+
+    // Use the same confirmation flow as irreversible actions, but with trigger_reason 'untrusted_provenance'
+    const contactResolver = (globalThis as any).__TERA_CONTACT_RESOLVER__;
+    if (!contactResolver) {
+      throw new Error("Workspace contact resolver not configured for taint enforcement");
+    }
+
+    const confirmationTtlMs = config.confirmationTtlMs ?? 15 * 60 * 1000;
+
+    const confirmationResult = await requestIrreversibleConfirmation(
+      eventId,
+      { name: config.name, permission: config.permission, blastRadius: config.blastRadius } as DefinedAction<any>,
+      ctx.actor,
+      rawInput,
+      ctx.workspaceId,
+      dbClient,
+      contactResolver,
+      confirmationTtlMs,
+      "untrusted_provenance",
+      untrustedSourceInfo ?? undefined
+    );
+
+    throw new ActionPendingIrreversibleConfirmationError(
+      `Action requires confirmation due to untrusted provenance (id: ${confirmationResult.confirmationId})`,
+      confirmationResult.confirmationId
+    );
+  }
+
   try {
     const handlerResult = await config.handler(result.data, {
       ...ctx,
@@ -266,6 +318,10 @@ async function executeImmediate(
         output: handlerResult,
         durationMs,
       });
+
+      // Compute and record output provenance
+      const outputLabel = computeOutputProvenance(inputProvenance, config.sanitizes ?? false);
+      await recordOutputProvenance(dbClient, eventId, outputLabel, ctx.parentEventId ?? null);
     }
 
     return { result: handlerResult, eventId: eventId ?? "" };
@@ -398,6 +454,13 @@ async function executeDelayed(
       `Invalid input for action "${config.name}"`,
       result.error.issues
     );
+  }
+
+  // Resolve input provenance from parent event
+  let inputProvenance: Map<string, "trusted" | "untrusted-external"> = new Map();
+  if (dbClient) {
+    const rawInputObj = rawInput as Record<string, unknown> ?? {};
+    inputProvenance = await resolveInputProvenance(dbClient, ctx.parentEventId, rawInputObj);
   }
 
   // Create action_events row with permission_result "delayed"
@@ -553,6 +616,13 @@ async function executeIrreversible(
     );
   }
 
+  // Resolve input provenance from parent event
+  let inputProvenance: Map<string, "trusted" | "untrusted-external"> = new Map();
+  if (dbClient) {
+    const rawInputObj = rawInput as Record<string, unknown> ?? {};
+    inputProvenance = await resolveInputProvenance(dbClient, ctx.parentEventId, rawInputObj);
+  }
+
   // Create action_events row with permission_result "pending_confirmation"
   const insertEvent: InsertActionEvent = {
     actionName: config.name,
@@ -586,7 +656,8 @@ async function executeIrreversible(
     ctx.workspaceId,
     dbClient,
     contactResolver,
-    confirmationTtlMs
+    confirmationTtlMs,
+    "declared_irreversible"
   );
 
   throw new ActionPendingIrreversibleConfirmationError(
@@ -622,16 +693,17 @@ export function defineAction<TInput extends z.ZodTypeAny, TOutput = unknown>(
     const startedAt = new Date();
 
     // Early exit for autonomous mode - skip all tiering
-    const riskMode = (config as any).riskMode ?? "guarded";
+    // Check options first (for per-call override), then config (for per-action default)
+    const riskMode = options?.riskMode ?? (config as any).riskMode ?? "guarded";
     if (riskMode === "autonomous") {
-      return executeImmediate(rawInput, ctx, dbClient, permissionEngine, config as ActionConfig<any, unknown>, startedAt, dryRun);
+      return executeImmediate(rawInput, ctx, dbClient, permissionEngine, config as ActionConfig<any, unknown>, startedAt, dryRun, riskMode);
     }
 
     // Guarded mode - apply tiering
     const tier = riskTier;
 
     if (tier === "instant") {
-      return executeImmediate(rawInput, ctx, dbClient, permissionEngine, config as ActionConfig<any, unknown>, startedAt, dryRun);
+      return executeImmediate(rawInput, ctx, dbClient, permissionEngine, config as ActionConfig<any, unknown>, startedAt, dryRun, riskMode);
     }
 
     if (tier === "delayed") {
@@ -643,7 +715,7 @@ export function defineAction<TInput extends z.ZodTypeAny, TOutput = unknown>(
     }
 
     // Fallback - should never reach here
-    return executeImmediate(rawInput, ctx, dbClient, permissionEngine, config as ActionConfig<any, unknown>, startedAt, dryRun);
+    return executeImmediate(rawInput, ctx, dbClient, permissionEngine, config as ActionConfig<any, unknown>, startedAt, dryRun, riskMode);
   };
 
   const self: DefinedAction<TInput, TOutput> = {

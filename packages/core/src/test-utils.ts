@@ -19,6 +19,12 @@ import type {
   InsertIrreversibleConfirmation,
   IrreversibleConfirmation,
   PendingIrreversibleConfirmationWithEvent,
+  DataProvenance,
+  InsertDataProvenance,
+  ProvenanceTrace,
+  ProvenanceTraceEntry,
+  ProvenanceLabel,
+  TriggerReason,
   ActorBehaviorBaseline,
   InsertActorBehaviorBaseline,
   ActorCallHistoryEntry,
@@ -30,6 +36,7 @@ export class InMemoryDbClient implements DbClient {
   private approvals: Array<ActionApproval> = [];
   public pendingDelayedActions: Array<PendingDelayedAction & { id: string }> = [];
   private confirmations: Array<IrreversibleConfirmation> = [];
+  public provenance: Array<DataProvenance & { id: string }> = [];
   public behaviorBaselines = new Map<string, ActorBehaviorBaseline>();
 
   async insertActionEvent(event: InsertActionEvent): Promise<{ id: string }> {
@@ -219,6 +226,8 @@ export class InMemoryDbClient implements DbClient {
       createdAt: e.startedAt,
       updatedAt: e.startedAt,
       dryRun: e.dryRun ?? false,
+      provenanceLabel: this.getProvenanceLabel(e.id),
+      triggerReason: this.getTriggerReason(e.id),
     }));
 
     const nextCursor = filtered.length > limit ? filtered[limit - 1].startedAt.toISOString() : null;
@@ -265,6 +274,8 @@ export class InMemoryDbClient implements DbClient {
         createdAt: event.startedAt,
         updatedAt: event.startedAt,
         dryRun: event.dryRun ?? false,
+        provenanceLabel: this.getProvenanceLabel(event.id),
+        triggerReason: this.getTriggerReason(event.id),
         ancestors: [],
         descendants: [],
       });
@@ -432,6 +443,83 @@ export class InMemoryDbClient implements DbClient {
         },
       };
     });
+  }
+
+  async insertDataProvenance(provenance: InsertDataProvenance): Promise<{ id: string }> {
+    const id = `prov-${this.provenance.length + 1}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const record: DataProvenance & { id: string } = {
+      ...provenance,
+      id,
+      createdAt: new Date(),
+    };
+    this.provenance.push(record);
+    return { id };
+  }
+
+  async findDataProvenanceByEventId(eventId: string): Promise<DataProvenance[]> {
+    return this.provenance
+      .filter((p) => p.eventId === eventId)
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+  }
+
+  async getProvenanceTrace(eventId: string): Promise<ProvenanceTrace | null> {
+    const event = this.events.find((e) => e.id === eventId);
+    if (!event) {
+      return null;
+    }
+
+    const outputProvenance = this.provenance
+      .filter((p) => p.eventId === eventId && p.fieldPath === "output")
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+
+    const outputLabel = outputProvenance[0]?.label ?? "trusted";
+
+    const trace: ProvenanceTraceEntry[] = [];
+    this.buildProvenanceTrace(eventId, trace);
+
+    return {
+      eventId,
+      outputLabel,
+      trace,
+    };
+  }
+
+  private buildProvenanceTrace(eventId: string, trace: ProvenanceTraceEntry[]): void {
+    const provenanceRecords = this.provenance
+      .filter((p) => p.eventId === eventId)
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+
+    for (const p of provenanceRecords) {
+      const actionEvent = this.events.find((e) => e.id === p.eventId);
+      const entry: ProvenanceTraceEntry = {
+        eventId: p.eventId,
+        actionName: actionEvent?.actionName ?? "unknown",
+        fieldPath: p.fieldPath,
+        label: p.label,
+        sourceEventId: p.sourceEventId,
+        isSanitized: p.label === "trusted" && p.sourceEventId !== null,
+      };
+      trace.push(entry);
+
+      // Always follow the chain if there's a source event to show full history
+      if (p.sourceEventId) {
+        this.buildProvenanceTrace(p.sourceEventId, trace);
+      }
+    }
+  }
+
+  private getProvenanceLabel(eventId: string): ProvenanceLabel | undefined {
+    const outputProvenance = this.provenance
+      .filter((p) => p.eventId === eventId && p.fieldPath === "output")
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+    return outputProvenance[0]?.label;
+  }
+
+  private getTriggerReason(eventId: string): TriggerReason | undefined {
+    const confirmation = this.confirmations
+      .filter((c) => c.actionEventId === eventId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
+    return confirmation?.triggerReason;
   }
 
   async findActorBehaviorBaseline(actorId: string, workspaceId: string): Promise<ActorBehaviorBaseline | null> {

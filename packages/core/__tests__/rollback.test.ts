@@ -40,7 +40,7 @@ describe("rollback scaffolding", () => {
       inputSchema: z.object({
         noteId: z.string(),
       }),
-      riskTier: "delayed",
+      riskTier: "instant",
       handler: async (input) => ({ archived: true, noteId: input.noteId }),
       rollback: async (output, _ctx: ActionContext) => {
         return { restored: true, noteId: (output as any).noteId };

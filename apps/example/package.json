@@ -10,7 +10,9 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "demo:provenance": "tsx scripts/provenance-demo.ts",
+    "demo:enforcement": "tsx scripts/enforcement-demo.ts"
   },
   "dependencies": {
     "@tera/adapter-next": "workspace:*",

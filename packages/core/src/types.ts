@@ -7,6 +7,7 @@ export type Actor = {
 
 export interface ExecuteOptions {
   dryRun?: boolean;
+  riskMode?: RiskMode;
 }
 
 export type ActionContext = {
@@ -177,6 +178,7 @@ export interface ActionConfig<TInput extends z.ZodTypeAny, TOutput = unknown> {
   delayWindowMs?: number;
   confirmationTtlMs?: number;
   rollback?: RollbackFn<TOutput>;
+  sanitizes?: boolean;
   behavioralDriftConfig?: BehavioralDriftConfig;
 }
 
@@ -202,6 +204,7 @@ export interface DefinedAction<TInput extends z.ZodTypeAny, TOutput = unknown> {
   delayWindowMs?: number;
   confirmationTtlMs?: number;
   rollback?: RollbackFn<TOutput>;
+  sanitizes?: boolean;
   behavioralDriftConfig?: BehavioralDriftConfig;
   handler: (input: z.infer<TInput>, ctx: ActionContext) => Promise<TOutput>;
   execute(
@@ -227,11 +230,46 @@ export interface ActionEvent<TInput = unknown, TOutput = unknown> {
   createdAt: Date;
   updatedAt: Date;
   dryRun: boolean;
+  provenanceLabel?: ProvenanceLabel;
+  triggerReason?: TriggerReason;
 }
 
 export interface ActionEventWithChain extends ActionEvent {
   ancestors: ActionEventWithChain[];
   descendants: ActionEventWithChain[];
+}
+
+export type ProvenanceLabel = "trusted" | "untrusted-external";
+
+export interface DataProvenance {
+  id: string;
+  eventId: string;
+  fieldPath: string;
+  label: ProvenanceLabel;
+  sourceEventId: string | null;
+  createdAt: Date;
+}
+
+export interface InsertDataProvenance {
+  eventId: string;
+  fieldPath: string;
+  label: ProvenanceLabel;
+  sourceEventId: string | null;
+}
+
+export interface ProvenanceTraceEntry {
+  eventId: string;
+  actionName: string;
+  fieldPath: string;
+  label: ProvenanceLabel;
+  sourceEventId: string | null;
+  isSanitized: boolean;
+}
+
+export interface ProvenanceTrace {
+  eventId: string;
+  outputLabel: ProvenanceLabel;
+  trace: ProvenanceTraceEntry[];
 }
 
 export interface ListEventsFilters {
@@ -339,6 +377,8 @@ export interface InsertActionEvent {
 
 export type IrreversibleConfirmationStatus = "pending" | "confirmed" | "expired" | "rejected";
 
+export type TriggerReason = "declared_irreversible" | "untrusted_provenance";
+
 export interface IrreversibleConfirmation {
   id: string;
   actionEventId: string;
@@ -353,6 +393,7 @@ export interface IrreversibleConfirmation {
   expiresAt: Date;
   confirmedAt: Date | null;
   createdAt: Date;
+  triggerReason: TriggerReason;
 }
 
 export interface InsertIrreversibleConfirmation {
@@ -367,6 +408,7 @@ export interface InsertIrreversibleConfirmation {
   status: IrreversibleConfirmationStatus;
   expiresAt: Date;
   confirmedAt: Date | null;
+  triggerReason: TriggerReason;
 }
 
 export interface PendingIrreversibleConfirmationWithEvent {
@@ -484,6 +526,10 @@ export interface DbClient {
   findPendingIrreversibleConfirmations(): Promise<IrreversibleConfirmation[]>;
   findAllPendingIrreversibleConfirmations(): Promise<IrreversibleConfirmation[]>;
   listPendingIrreversibleConfirmations(workspaceId: string): Promise<PendingIrreversibleConfirmationWithEvent[]>;
+
+  insertDataProvenance(provenance: InsertDataProvenance): Promise<{ id: string }>;
+  findDataProvenanceByEventId(eventId: string): Promise<DataProvenance[]>;
+  getProvenanceTrace(eventId: string): Promise<ProvenanceTrace | null>;
 
   findActorBehaviorBaseline(actorId: string, workspaceId: string): Promise<ActorBehaviorBaseline | null>;
   upsertActorBehaviorBaseline(baseline: InsertActorBehaviorBaseline): Promise<void>;
