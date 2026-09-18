@@ -352,4 +352,19 @@ When an Action with `sanitizes: true` cleans taint:
 
 ### Enforcement (Stage 14c)
 
-This stage builds propagation logic only. Enforcement — forcing confirmation on untrusted-rooted calls — is Stage 14c.
+Before executing any Action (after containment and permission checks from Stages 3/3.5), Tera checks the resolved input provenance (Stage 14a/14b). If the call's provenance is `untrusted-external` — meaning some or all of its input traces back to content the agent read rather than a human instructed — and the actor's riskMode is `guarded`, the call is forced through out-of-band confirmation REGARDLESS of the Action's own declared riskTier (even an `instant`-tier Action gets escalated). In `autonomous` riskMode, taint labels are still recorded and visible in the trace, but do NOT block execution — autonomous mode's explicit tradeoff already accepted Blast Radius as the sole backstop, and taint enforcement respects that choice rather than silently overriding it.
+
+**Enforcement Algorithm:**
+1. After permission checks pass, resolve input provenance using Stage 14a/14b logic
+2. If ANY resolved input field is `untrusted-external` AND actor's riskMode is `guarded`:
+   - Override the Action's own riskTier and route through the SAME out-of-band confirmation mechanism as an `irreversible`-tier Action (reuse `requestIrreversibleConfirmation`, do not build a parallel confirmation system)
+   - Tag the confirmation record with `trigger_reason: 'untrusted_provenance'` (vs `'declared_irreversible'` for Actions that declare themselves irreversible)
+   - The confirmation notification includes a clear explanation of WHAT untrusted source triggered this — surfacing the specific `source_type`/`source_identifier` from the provenance chain (e.g., "This action's input traces back to content read from tool: web_fetch")
+3. If riskMode is `autonomous`: skip this check entirely, taint is recorded (already done in 14a/14b) but does not block
+
+**Trigger Reason Precedence:**
+When an Action is BOTH declared `irreversible` AND has untrusted input, the `trigger_reason` is set to `'declared_irreversible'` — the declared irreversibility takes precedence as it represents an explicit design decision by the Action author. The `untrusted_provenance` reason is used only for Actions that would otherwise run instantly but are escalated solely due to taint.
+
+**Observability Extensions:**
+- `listEvents` and `getEventWithChain` now include `provenanceLabel` (the computed output trust label) and `triggerReason` (if a taint-triggered confirmation occurred) in each event
+- This allows a developer's self-built dashboard to surface "this call was flagged for untrusted provenance" distinctly from other confirmation reasons

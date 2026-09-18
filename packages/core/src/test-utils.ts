@@ -220,6 +220,8 @@ export class InMemoryDbClient implements DbClient {
       createdAt: e.startedAt,
       updatedAt: e.startedAt,
       dryRun: e.dryRun ?? false,
+      provenanceLabel: this.getProvenanceLabel(e.id),
+      triggerReason: this.getTriggerReason(e.id),
     }));
 
     const nextCursor = filtered.length > limit ? filtered[limit - 1].startedAt.toISOString() : null;
@@ -266,6 +268,8 @@ export class InMemoryDbClient implements DbClient {
         createdAt: event.startedAt,
         updatedAt: event.startedAt,
         dryRun: event.dryRun ?? false,
+        provenanceLabel: this.getProvenanceLabel(event.id),
+        triggerReason: this.getTriggerReason(event.id),
         ancestors: [],
         descendants: [],
       });
@@ -495,5 +499,19 @@ export class InMemoryDbClient implements DbClient {
         this.buildProvenanceTrace(p.sourceEventId, trace);
       }
     }
+  }
+
+  private getProvenanceLabel(eventId: string): ProvenanceLabel | undefined {
+    const outputProvenance = this.provenance
+      .filter((p) => p.eventId === eventId && p.fieldPath === "output")
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+    return outputProvenance[0]?.label;
+  }
+
+  private getTriggerReason(eventId: string): TriggerReason | undefined {
+    const confirmation = this.confirmations
+      .filter((c) => c.actionEventId === eventId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
+    return confirmation?.triggerReason;
   }
 }

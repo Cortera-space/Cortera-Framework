@@ -63,3 +63,31 @@ export async function recordOutputProvenance(
     sourceEventId,
   });
 }
+
+export function hasUntrustedInput(
+  inputProvenance: Map<string, ProvenanceLabel>
+): boolean {
+  for (const label of inputProvenance.values()) {
+    if (label === "untrusted-external") {
+      return true;
+    }
+  }
+  return false;
+}
+
+export async function getUntrustedSourceInfo(
+  dbClient: DbClient | undefined,
+  inputProvenance: Map<string, ProvenanceLabel>
+): Promise<string | null> {
+  if (!dbClient) return null;
+
+  // Find the first untrusted field and trace its source
+  for (const [fieldPath, label] of inputProvenance.entries()) {
+    if (label === "untrusted-external") {
+      // This would require traversing the provenance chain to find the original source
+      // For now, we return a generic description
+      return `input field "${fieldPath}" traces to untrusted-external source`;
+    }
+  }
+  return null;
+}

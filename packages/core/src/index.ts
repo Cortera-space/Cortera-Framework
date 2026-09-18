@@ -32,5 +32,7 @@ export {
   computeOutputProvenance,
   resolveInputProvenance,
   recordOutputProvenance,
+  hasUntrustedInput,
+  getUntrustedSourceInfo,
 } from "./provenance";
 export { InMemoryDbClient } from "./test-utils";

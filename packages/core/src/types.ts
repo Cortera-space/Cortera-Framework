@@ -223,6 +223,8 @@ export interface ActionEvent<TInput = unknown, TOutput = unknown> {
   createdAt: Date;
   updatedAt: Date;
   dryRun: boolean;
+  provenanceLabel?: ProvenanceLabel;
+  triggerReason?: TriggerReason;
 }
 
 export interface ActionEventWithChain extends ActionEvent {
@@ -360,6 +362,8 @@ export interface InsertActionEvent {
 
 export type IrreversibleConfirmationStatus = "pending" | "confirmed" | "expired" | "rejected";
 
+export type TriggerReason = "declared_irreversible" | "untrusted_provenance";
+
 export interface IrreversibleConfirmation {
   id: string;
   actionEventId: string;
@@ -374,6 +378,7 @@ export interface IrreversibleConfirmation {
   expiresAt: Date;
   confirmedAt: Date | null;
   createdAt: Date;
+  triggerReason: TriggerReason;
 }
 
 export interface InsertIrreversibleConfirmation {
@@ -388,6 +393,7 @@ export interface InsertIrreversibleConfirmation {
   status: IrreversibleConfirmationStatus;
   expiresAt: Date;
   confirmedAt: Date | null;
+  triggerReason: TriggerReason;
 }
 
 export interface PendingIrreversibleConfirmationWithEvent {

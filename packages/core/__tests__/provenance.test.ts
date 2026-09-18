@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { z } from "zod";
 import {
   InMemoryDbClient,
@@ -9,6 +9,13 @@ import {
   type ActionContext,
   type DefinedAction,
 } from "../src/index";
+
+const mockContactResolver = {
+  getContact: vi.fn().mockResolvedValue({
+    channel: "email",
+    destination: "admin@example.com",
+  }),
+};
 
 describe("Provenance - computeOutputProvenance", () => {
   it("returns trusted when all inputs are trusted and no sanitizes flag", () => {
@@ -69,6 +76,7 @@ describe("Provenance - InMemoryDbClient integration", () => {
       actor: { actorType: "agent", actorId: "test-agent" },
       workspaceId: "test-workspace",
     };
+    (globalThis as any).__TERA_CONTACT_RESOLVER__ = mockContactResolver;
   });
 
   const createTestAction = (name: string, sanitizes = false): DefinedAction<any, any> =>
@@ -80,6 +88,11 @@ describe("Provenance - InMemoryDbClient integration", () => {
       sanitizes,
       handler: async (input) => ({ result: input.value }),
     });
+
+  // Helper to execute in autonomous mode to bypass taint enforcement
+  const executeAutonomous = async (action: DefinedAction<any, any>, input: unknown, ctx: ActionContext, db: InMemoryDbClient) => {
+    return action.execute(input, ctx, db, undefined, { riskMode: "autonomous" });
+  };
 
   it("Action with all-trusted inputs and no sanitizes produces trusted output", async () => {
     const action = createTestAction("trustedAction", false);
@@ -105,7 +118,8 @@ describe("Provenance - InMemoryDbClient integration", () => {
     const action = createTestAction("untrustedAction", false);
     const childCtx = { ...ctx, parentEventId: sourceEventId };
 
-    await action.execute({ value: "from untrusted" }, childCtx, db);
+    // Use autonomous mode to bypass taint enforcement for this provenance test
+    await executeAutonomous(action, { value: "from untrusted" }, childCtx, db);
 
     const trace = await db.getProvenanceTrace(db.events[0].id);
     expect(trace).not.toBeNull();
@@ -150,9 +164,9 @@ describe("Provenance - InMemoryDbClient integration", () => {
       sourceEventId: null,
     });
 
-    const resultA = await actionA.execute({ value: "A" }, { ...ctx, parentEventId: "tool-output-event" }, db);
-    const resultB = await actionB.execute({ value: "B" }, { ...ctx, parentEventId: resultA.eventId }, db);
-    const resultC = await actionC.execute({ value: "C" }, { ...ctx, parentEventId: resultB.eventId }, db);
+    const resultA = await executeAutonomous(actionA, { value: "A" }, { ...ctx, parentEventId: "tool-output-event" }, db);
+    const resultB = await executeAutonomous(actionB, { value: "B" }, { ...ctx, parentEventId: resultA.eventId }, db);
+    const resultC = await executeAutonomous(actionC, { value: "C" }, { ...ctx, parentEventId: resultB.eventId }, db);
 
     // Check C's output is untrusted
     const traceC = await db.getProvenanceTrace(resultC.eventId);
@@ -179,9 +193,9 @@ describe("Provenance - InMemoryDbClient integration", () => {
       sourceEventId: null,
     });
 
-    const resultA = await actionA.execute({ value: "A" }, { ...ctx, parentEventId: "tool-output-event" }, db);
-    const resultB = await actionB.execute({ value: "B" }, { ...ctx, parentEventId: resultA.eventId }, db);
-    const resultC = await actionC.execute({ value: "C" }, { ...ctx, parentEventId: resultB.eventId }, db);
+    const resultA = await executeAutonomous(actionA, { value: "A" }, { ...ctx, parentEventId: "tool-output-event" }, db);
+    const resultB = await executeAutonomous(actionB, { value: "B" }, { ...ctx, parentEventId: resultA.eventId }, db);
+    const resultC = await executeAutonomous(actionC, { value: "C" }, { ...ctx, parentEventId: resultB.eventId }, db);
 
     // Check B's output is trusted (sanitized)
     const traceB = await db.getProvenanceTrace(resultB.eventId);
@@ -213,9 +227,9 @@ describe("Provenance - InMemoryDbClient integration", () => {
       sourceEventId: null,
     });
 
-    const resultA = await actionA.execute({ value: "A" }, { ...ctx, parentEventId: "tool-output-event" }, db);
-    const resultB = await actionB.execute({ value: "B" }, { ...ctx, parentEventId: resultA.eventId }, db);
-    const resultC = await actionC.execute({ value: "C" }, { ...ctx, parentEventId: resultB.eventId }, db);
+    const resultA = await executeAutonomous(actionA, { value: "A" }, { ...ctx, parentEventId: "tool-output-event" }, db);
+    const resultB = await executeAutonomous(actionB, { value: "B" }, { ...ctx, parentEventId: resultA.eventId }, db);
+    const resultC = await executeAutonomous(actionC, { value: "C" }, { ...ctx, parentEventId: resultB.eventId }, db);
 
     const traceC = await db.getProvenanceTrace(resultC.eventId);
     expect(traceC).not.toBeNull();

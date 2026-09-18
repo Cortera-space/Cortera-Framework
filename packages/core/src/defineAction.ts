@@ -20,11 +20,12 @@ import {
   type PermissionEngine,
   type ExecuteOptions,
   type ActionConfig,
+  type TriggerReason,
 } from "./types";
 import { recordEvent, updateEvent } from "./event-log";
 import { checkActorContainment, checkBlastRadius } from "./containment";
 import { requestIrreversibleConfirmation } from "./irreversible-confirmation";
-import { computeOutputProvenance, resolveInputProvenance, recordOutputProvenance } from "./provenance";
+import { computeOutputProvenance, resolveInputProvenance, recordOutputProvenance, hasUntrustedInput, getUntrustedSourceInfo } from "./provenance";
 
 async function runSchedulingChecks(
   dbClient: DbClient | undefined,
@@ -96,7 +97,8 @@ async function executeImmediate(
   permissionEngine: PermissionEngine | undefined,
   config: ActionConfig<any, unknown>,
   startedAt: Date,
-  dryRun: boolean
+  dryRun: boolean,
+  riskMode?: string
 ): Promise<ActionExecutionResult<unknown>> {
   const permissionResult = await runFullChecks(dbClient, ctx, { name: config.name, permission: config.permission, blastRadius: config.blastRadius } as DefinedAction<any>, permissionEngine, dryRun);
 
@@ -245,6 +247,45 @@ async function executeImmediate(
 
   if (dryRun) {
     return { wouldSucceed: true as const, eventId };
+  }
+
+  // Taint enforcement check (Stage 14c): if any input is untrusted-external and riskMode is guarded,
+  // force through out-of-band confirmation like an irreversible action
+  // EXCEPTION: if the action has sanitizes: true, it can clean the taint and execute without confirmation
+  const effectiveRiskMode = riskMode ?? (config as any).riskMode ?? "guarded";
+  if (effectiveRiskMode === "guarded" && hasUntrustedInput(inputProvenance) && !config.sanitizes) {
+    if (!dbClient || !eventId) {
+      throw new Error("Taint enforcement requires dbClient and eventId");
+    }
+
+    // Get untrusted source info for the confirmation notification
+    const untrustedSourceInfo = await getUntrustedSourceInfo(dbClient, inputProvenance);
+
+    // Use the same confirmation flow as irreversible actions, but with trigger_reason 'untrusted_provenance'
+    const contactResolver = (globalThis as any).__TERA_CONTACT_RESOLVER__;
+    if (!contactResolver) {
+      throw new Error("Workspace contact resolver not configured for taint enforcement");
+    }
+
+    const confirmationTtlMs = config.confirmationTtlMs ?? 15 * 60 * 1000;
+
+    const confirmationResult = await requestIrreversibleConfirmation(
+      eventId,
+      { name: config.name, permission: config.permission, blastRadius: config.blastRadius } as DefinedAction<any>,
+      ctx.actor,
+      rawInput,
+      ctx.workspaceId,
+      dbClient,
+      contactResolver,
+      confirmationTtlMs,
+      "untrusted_provenance",
+      untrustedSourceInfo ?? undefined
+    );
+
+    throw new ActionPendingIrreversibleConfirmationError(
+      `Action requires confirmation due to untrusted provenance (id: ${confirmationResult.confirmationId})`,
+      confirmationResult.confirmationId
+    );
   }
 
   try {
@@ -598,7 +639,8 @@ async function executeIrreversible(
     ctx.workspaceId,
     dbClient,
     contactResolver,
-    confirmationTtlMs
+    confirmationTtlMs,
+    "declared_irreversible"
   );
 
   throw new ActionPendingIrreversibleConfirmationError(
@@ -634,16 +676,17 @@ export function defineAction<TInput extends z.ZodTypeAny, TOutput = unknown>(
     const startedAt = new Date();
 
     // Early exit for autonomous mode - skip all tiering
-    const riskMode = (config as any).riskMode ?? "guarded";
+    // Check options first (for per-call override), then config (for per-action default)
+    const riskMode = options?.riskMode ?? (config as any).riskMode ?? "guarded";
     if (riskMode === "autonomous") {
-      return executeImmediate(rawInput, ctx, dbClient, permissionEngine, config as ActionConfig<any, unknown>, startedAt, dryRun);
+      return executeImmediate(rawInput, ctx, dbClient, permissionEngine, config as ActionConfig<any, unknown>, startedAt, dryRun, riskMode);
     }
 
     // Guarded mode - apply tiering
     const tier = riskTier;
 
     if (tier === "instant") {
-      return executeImmediate(rawInput, ctx, dbClient, permissionEngine, config as ActionConfig<any, unknown>, startedAt, dryRun);
+      return executeImmediate(rawInput, ctx, dbClient, permissionEngine, config as ActionConfig<any, unknown>, startedAt, dryRun, riskMode);
     }
 
     if (tier === "delayed") {
@@ -655,7 +698,7 @@ export function defineAction<TInput extends z.ZodTypeAny, TOutput = unknown>(
     }
 
     // Fallback - should never reach here
-    return executeImmediate(rawInput, ctx, dbClient, permissionEngine, config as ActionConfig<any, unknown>, startedAt, dryRun);
+    return executeImmediate(rawInput, ctx, dbClient, permissionEngine, config as ActionConfig<any, unknown>, startedAt, dryRun, riskMode);
   };
 
   const self: DefinedAction<TInput, TOutput> = {
