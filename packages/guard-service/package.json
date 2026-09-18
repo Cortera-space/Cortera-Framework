@@ -12,11 +12,11 @@
     }
   },
   "scripts": {
-    "build": "tsup src/index.ts --format esm --dts --clean",
-    "dev": "tsup src/index.ts --format esm --dts --watch",
+    "build": "tsup src/index.ts --format esm --clean --tsconfig tsconfig.json --no-dts",
+    "dev": "tsup src/index.ts --format esm --watch --tsconfig tsconfig.json --no-dts",
     "start": "node dist/index.js",
     "clean": "rm -rf dist",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
     "@tera/core": "workspace:*",
