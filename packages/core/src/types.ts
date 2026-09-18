@@ -7,6 +7,7 @@ export type Actor = {
 
 export interface ExecuteOptions {
   dryRun?: boolean;
+  riskMode?: RiskMode;
 }
 
 export type ActionContext = {
@@ -247,6 +248,13 @@ export interface DataProvenance {
   label: ProvenanceLabel;
   sourceEventId: string | null;
   createdAt: Date;
+}
+
+export interface InsertDataProvenance {
+  eventId: string;
+  fieldPath: string;
+  label: ProvenanceLabel;
+  sourceEventId: string | null;
 }
 
 export interface ProvenanceTraceEntry {
@@ -519,18 +527,10 @@ export interface DbClient {
   findAllPendingIrreversibleConfirmations(): Promise<IrreversibleConfirmation[]>;
   listPendingIrreversibleConfirmations(workspaceId: string): Promise<PendingIrreversibleConfirmationWithEvent[]>;
 
-<<<<<<< HEAD
   insertDataProvenance(provenance: InsertDataProvenance): Promise<{ id: string }>;
   findDataProvenanceByEventId(eventId: string): Promise<DataProvenance[]>;
   getProvenanceTrace(eventId: string): Promise<ProvenanceTrace | null>;
-}
 
-export interface InsertDataProvenance {
-  eventId: string;
-  fieldPath: string;
-  label: ProvenanceLabel;
-  sourceEventId: string | null;
-=======
   findActorBehaviorBaseline(actorId: string, workspaceId: string): Promise<ActorBehaviorBaseline | null>;
   upsertActorBehaviorBaseline(baseline: InsertActorBehaviorBaseline): Promise<void>;
   findActorCallHistory(
@@ -540,5 +540,4 @@ export interface InsertDataProvenance {
     to?: Date,
     limit?: number
   ): Promise<ActorCallHistoryEntry[]>;
->>>>>>> origin/main
 }

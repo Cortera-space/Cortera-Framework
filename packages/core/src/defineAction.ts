@@ -107,18 +107,6 @@ async function runFullChecks(
   return permissionResult;
 }
 
-  const permissionResult = permissionEngine
-    ? await permissionEngine.check(
-        ctx.actor,
-        action,
-        undefined,
-        ctx.workspaceId
-      )
-    : "allow";
-
-  return permissionResult;
-}
-
 async function executeImmediate(
   rawInput: unknown,
   ctx: ActionContext,

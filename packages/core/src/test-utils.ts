@@ -24,6 +24,7 @@ import type {
   ProvenanceTrace,
   ProvenanceTraceEntry,
   ProvenanceLabel,
+  TriggerReason,
   ActorBehaviorBaseline,
   InsertActorBehaviorBaseline,
   ActorCallHistoryEntry,
@@ -444,7 +445,6 @@ export class InMemoryDbClient implements DbClient {
     });
   }
 
-<<<<<<< HEAD
   async insertDataProvenance(provenance: InsertDataProvenance): Promise<{ id: string }> {
     const id = `prov-${this.provenance.length + 1}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const record: DataProvenance & { id: string } = {

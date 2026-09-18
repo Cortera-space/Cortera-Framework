@@ -2,6 +2,7 @@ import { randomBytes } from "crypto";
 import {
   ActionPermissionError,
   ActionContainmentError,
+  TriggerReason,
 } from "./types";
 import type {
   DbClient,
