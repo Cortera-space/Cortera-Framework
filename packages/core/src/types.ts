@@ -75,12 +75,15 @@ export class ActionPendingIrreversibleConfirmationError extends Error {
 
 export type ActorStatus = "active" | "contained" | "revoked";
 
+export type ContainmentReason = "blast_radius_violation" | "behavioral_drift";
+
 export interface ActorState {
   actorId: string;
   workspaceId: string;
   status: ActorStatus;
   containedAt: Date | null;
   containedReason: string | null;
+  containmentReason: ContainmentReason | null;
   reviewedBy: string | null;
   reviewedAt: Date | null;
 }
@@ -91,6 +94,7 @@ export interface InsertActorState {
   status: ActorStatus;
   containedAt: Date | null;
   containedReason: string | null;
+  containmentReason: ContainmentReason | null;
   reviewedBy: string | null;
   reviewedAt: Date | null;
 }
@@ -173,6 +177,7 @@ export interface ActionConfig<TInput extends z.ZodTypeAny, TOutput = unknown> {
   delayWindowMs?: number;
   confirmationTtlMs?: number;
   rollback?: RollbackFn<TOutput>;
+  behavioralDriftConfig?: BehavioralDriftConfig;
 }
 
 export interface ActionResult<T = unknown> {
@@ -254,6 +259,7 @@ export interface ContainedActor {
   status: "contained" | "revoked";
   containedAt: Date;
   containedReason: string | null;
+  containmentReason: ContainmentReason | null;
   reviewedBy: string | null;
   reviewedAt: Date | null;
 }
@@ -383,6 +389,72 @@ export interface WorkspaceContactResolver {
   getContact(workspaceId: string): Promise<WorkspaceContact | null>;
 }
 
+export interface ActorBehaviorBaseline {
+  actorId: string;
+  workspaceId: string;
+  actionTypeDistribution: Record<string, number>;
+  avgCallsPerHour: number | null;
+  typicalHours: number[] | null;
+  lastComputedAt: Date;
+}
+
+export interface InsertActorBehaviorBaseline {
+  actorId: string;
+  workspaceId: string;
+  actionTypeDistribution: Record<string, number>;
+  avgCallsPerHour: number | null;
+  typicalHours: number[] | null;
+  lastComputedAt: Date;
+}
+
+export type DriftDetectorName =
+  | "scope_widening"
+  | "recon_then_strike"
+  | "dormant_then_burst";
+
+export interface DriftDetectorMatch {
+  detector: DriftDetectorName;
+  explanation: string;
+  severity: "low" | "medium" | "high";
+}
+
+export interface ActorCallHistoryEntry {
+  actionName: string;
+  permissionKey: string;
+  timestamp: Date;
+  permissionResult: "allow" | "deny" | "approval_required" | "delayed" | "pending_confirmation";
+}
+
+export interface BehavioralDriftConfig {
+  baselineWindowDays: number;
+  recentWindowHours: number;
+  minCallsForBaseline: number;
+  scopeWideningThreshold: number;
+  reconThenStrikeReconWindowHours: number;
+  reconThenStrikeStrikeThreshold: number;
+  dormantThenBurstDormantHours: number;
+  dormantThenBurstBurstThreshold: number;
+}
+
+export const DEFAULT_BEHAVIORAL_DRIFT_CONFIG: BehavioralDriftConfig = {
+  baselineWindowDays: 30,
+  recentWindowHours: 24,
+  minCallsForBaseline: 10,
+  scopeWideningThreshold: 0.7,
+  reconThenStrikeReconWindowHours: 6,
+  reconThenStrikeStrikeThreshold: 3,
+  dormantThenBurstDormantHours: 168,
+  dormantThenBurstBurstThreshold: 20,
+};
+
+export type DriftDetectorFn = (
+  actorId: string,
+  workspaceId: string,
+  history: ActorCallHistoryEntry[],
+  baseline: ActorBehaviorBaseline | null,
+  config: BehavioralDriftConfig
+) => Promise<DriftDetectorMatch | null>;
+
 export interface DbClient {
   insertActionEvent(event: InsertActionEvent): Promise<{ id: string }>;
   updateActionEvent(id: string, event: Partial<InsertActionEvent>): Promise<void>;
@@ -411,4 +483,14 @@ export interface DbClient {
   findPendingIrreversibleConfirmations(): Promise<IrreversibleConfirmation[]>;
   findAllPendingIrreversibleConfirmations(): Promise<IrreversibleConfirmation[]>;
   listPendingIrreversibleConfirmations(workspaceId: string): Promise<PendingIrreversibleConfirmationWithEvent[]>;
+
+  findActorBehaviorBaseline(actorId: string, workspaceId: string): Promise<ActorBehaviorBaseline | null>;
+  upsertActorBehaviorBaseline(baseline: InsertActorBehaviorBaseline): Promise<void>;
+  findActorCallHistory(
+    actorId: string,
+    workspaceId: string,
+    from: Date,
+    to?: Date,
+    limit?: number
+  ): Promise<ActorCallHistoryEntry[]>;
 }

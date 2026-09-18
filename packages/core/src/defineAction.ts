@@ -19,11 +19,13 @@ import {
   type DryRunResult,
   type PermissionEngine,
   type ExecuteOptions,
+  type BehavioralDriftConfig,
 } from "./types";
 import type { ActionConfig } from "./types";
 import { recordEvent, updateEvent } from "./event-log";
-import { checkActorContainment, checkBlastRadius } from "./containment";
+import { checkActorContainment, checkBlastRadius, containActorForBehavioralDrift } from "./containment";
 import { requestIrreversibleConfirmation } from "./irreversible-confirmation";
+import { runAllDetectors, DEFAULT_BEHAVIORAL_DRIFT_CONFIG } from "./behavioral-drift";
 
 async function runSchedulingChecks(
   dbClient: DbClient | undefined,
@@ -60,7 +62,8 @@ async function runFullChecks(
   dbClient: DbClient | undefined,
   ctx: ActionContext,
   action: DefinedAction<any>,
-  permissionEngine: PermissionEngine | undefined
+  permissionEngine: PermissionEngine | undefined,
+  config: ActionConfig<any, unknown>
 ): Promise<"allow" | "deny" | "approval_required"> {
   if (dbClient) {
     try {
@@ -73,6 +76,13 @@ async function runFullChecks(
     }
 
     await checkBlastRadius(dbClient, ctx, action);
+
+    // Behavioral drift detection
+    const driftConfig: BehavioralDriftConfig = (config as any).behavioralDriftConfig ?? DEFAULT_BEHAVIORAL_DRIFT_CONFIG;
+    const driftMatches = await runAllDetectors(dbClient, ctx.actor.actorId, ctx.workspaceId, driftConfig);
+    if (driftMatches.length > 0) {
+      await containActorForBehavioralDrift(dbClient, ctx, action, driftMatches);
+    }
   }
 
   const permissionResult = permissionEngine
@@ -96,7 +106,7 @@ async function executeImmediate(
   startedAt: Date,
   dryRun: boolean
 ): Promise<ActionExecutionResult<unknown>> {
-  const permissionResult = await runFullChecks(dbClient, ctx, { name: config.name, permission: config.permission, blastRadius: config.blastRadius } as DefinedAction<any>, permissionEngine);
+  const permissionResult = await runFullChecks(dbClient, ctx, { name: config.name, permission: config.permission, blastRadius: config.blastRadius } as DefinedAction<any>, permissionEngine, config);
 
   if (permissionResult === "deny") {
     if (dbClient) {
