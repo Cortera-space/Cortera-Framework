@@ -77,11 +77,16 @@ async function runFullChecks(
 
     await checkBlastRadius(dbClient, ctx, action);
 
-    // Behavioral drift detection
+    // Behavioral drift detection (only if action has behavioralDriftConfig and dbClient supports it)
     const driftConfig: BehavioralDriftConfig = (config as any).behavioralDriftConfig ?? DEFAULT_BEHAVIORAL_DRIFT_CONFIG;
-    const driftMatches = await runAllDetectors(dbClient, ctx.actor.actorId, ctx.workspaceId, driftConfig);
-    if (driftMatches.length > 0) {
-      await containActorForBehavioralDrift(dbClient, ctx, action, driftMatches);
+    const hasBehavioralDriftConfig = !!(config as any).behavioralDriftConfig;
+    const dbClientSupportsHistory = dbClient && typeof (dbClient as any).findActorCallHistory === "function";
+    
+    if (hasBehavioralDriftConfig && dbClientSupportsHistory) {
+      const driftMatches = await runAllDetectors(dbClient, ctx.actor.actorId, ctx.workspaceId, driftConfig, new Date(), config.permission);
+      if (driftMatches.length > 0) {
+        await containActorForBehavioralDrift(dbClient, ctx, action, driftMatches);
+      }
     }
   }
 
@@ -651,6 +656,7 @@ export function defineAction<TInput extends z.ZodTypeAny, TOutput = unknown>(
     confirmationTtlMs,
     delayWindowMs: config.delayWindowMs,
     rollback: config.rollback,
+    behavioralDriftConfig: config.behavioralDriftConfig,
     handler: config.handler,
     execute,
   };

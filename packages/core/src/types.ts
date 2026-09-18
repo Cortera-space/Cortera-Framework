@@ -202,6 +202,7 @@ export interface DefinedAction<TInput extends z.ZodTypeAny, TOutput = unknown> {
   delayWindowMs?: number;
   confirmationTtlMs?: number;
   rollback?: RollbackFn<TOutput>;
+  behavioralDriftConfig?: BehavioralDriftConfig;
   handler: (input: z.infer<TInput>, ctx: ActionContext) => Promise<TOutput>;
   execute(
     rawInput: unknown,

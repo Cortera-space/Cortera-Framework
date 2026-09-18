@@ -147,7 +147,8 @@ export async function detectScopeWidening(
   history: ActorCallHistoryEntry[],
   baseline: ActorBehaviorBaseline | null,
   config: BehavioralDriftConfig = DEFAULT_BEHAVIORAL_DRIFT_CONFIG,
-  now: Date = new Date()
+  now: Date = new Date(),
+  currentActionPermissionKey?: string
 ): Promise<DriftDetectorMatch | null> {
   if (!baseline || history.length === 0) {
     return null;
@@ -156,13 +157,18 @@ export async function detectScopeWidening(
   const recentWindowStart = new Date(now.getTime() - config.recentWindowHours * 60 * 60 * 1000);
   const recentHistory = history.filter((h) => h.timestamp >= recentWindowStart);
 
-  if (recentHistory.length < 3) {
+  if (recentHistory.length < 3 && !currentActionPermissionKey) {
     return null;
   }
 
   const recentDist: Record<string, number> = {};
   for (const entry of recentHistory) {
     recentDist[entry.permissionKey] = (recentDist[entry.permissionKey] ?? 0) + 1;
+  }
+
+  // Include the current action in recent distribution if provided
+  if (currentActionPermissionKey) {
+    recentDist[currentActionPermissionKey] = (recentDist[currentActionPermissionKey] ?? 0) + 1;
   }
 
   const newActionTypes = getNewActionTypesInRecent(baseline.actionTypeDistribution, recentDist);
@@ -194,7 +200,8 @@ export async function detectReconThenStrike(
   history: ActorCallHistoryEntry[],
   baseline: ActorBehaviorBaseline | null,
   config: BehavioralDriftConfig = DEFAULT_BEHAVIORAL_DRIFT_CONFIG,
-  now: Date = new Date()
+  now: Date = new Date(),
+  currentActionPermissionKey?: string
 ): Promise<DriftDetectorMatch | null> {
   if (history.length < config.reconThenStrikeStrikeThreshold + 1) {
     return null;
@@ -248,7 +255,8 @@ export async function detectDormantThenBurst(
   history: ActorCallHistoryEntry[],
   baseline: ActorBehaviorBaseline | null,
   config: BehavioralDriftConfig = DEFAULT_BEHAVIORAL_DRIFT_CONFIG,
-  now: Date = new Date()
+  now: Date = new Date(),
+  currentActionPermissionKey?: string
 ): Promise<DriftDetectorMatch | null> {
   if (history.length < config.dormantThenBurstBurstThreshold) {
     return null;
@@ -299,7 +307,8 @@ export async function runAllDetectors(
   actorId: string,
   workspaceId: string,
   config: BehavioralDriftConfig = DEFAULT_BEHAVIORAL_DRIFT_CONFIG,
-  now: Date = new Date()
+  now: Date = new Date(),
+  currentActionPermissionKey?: string
 ): Promise<DriftDetectorMatch[]> {
   const historyWindowStart = new Date(
     now.getTime() - Math.max(
@@ -308,12 +317,16 @@ export async function runAllDetectors(
     )
   );
   const history = await dbClient.findActorCallHistory(actorId, workspaceId, historyWindowStart);
+  
+  // Filter to only include allowed actions for behavioral analysis
+  const allowedHistory = history.filter((h) => h.permissionResult === "allow");
+  
   const baseline = await getOrComputeBaseline(dbClient, actorId, workspaceId, config);
 
   const matches: DriftDetectorMatch[] = [];
 
   for (const { name, fn } of DRIFT_DETECTORS) {
-    const match = await fn(actorId, workspaceId, history, baseline, config, now);
+    const match = await fn(actorId, workspaceId, allowedHistory, baseline, config, now, currentActionPermissionKey);
     if (match) {
       matches.push(match);
     }

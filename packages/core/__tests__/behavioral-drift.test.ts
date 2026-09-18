@@ -218,18 +218,19 @@ describe("behavioral-drift", () => {
     it("computes baseline from sufficient history", async () => {
       const now = new Date();
       // Events older than 24h (recent window) so they're included in baseline
-      for (let i = 0; i < 15; i++) {
+      // With default config (30d baseline, 24h recent), insert at 25-37 hours ago
+      for (let hour = 25; hour <= 37; hour++) {
         await dbClient.insertActionEvent({
           actionName: "notes.create",
           actorType: "agent",
           actorId: "test-agent",
-          input: { n: i },
+          input: { n: hour },
           output: null,
           error: null,
           permissionResult: "allow",
           approvedBy: null,
           parentEventId: null,
-          startedAt: new Date(now.getTime() - (25 + i) * 3600000),
+          startedAt: new Date(now.getTime() - hour * 3600000),
           durationMs: 10,
           workspaceId: "ws-1",
           blastRadius: null,
@@ -238,7 +239,7 @@ describe("behavioral-drift", () => {
 
       const baseline = await computeBehaviorBaseline(dbClient, "test-agent", "ws-1");
       expect(baseline).not.toBeNull();
-      expect(baseline!.actionTypeDistribution["notes.create"]).toBe(15);
+      expect(baseline!.actionTypeDistribution["notes.create"]).toBe(13);
       expect(baseline!.avgCallsPerHour).toBeGreaterThan(0);
       expect(baseline!.typicalHours).toBeInstanceOf(Array);
     });
@@ -884,26 +885,35 @@ describe("behavioral-drift", () => {
         permission: "customers.delete",
         inputSchema: z.object({ id: z.string() }),
         handler: async (input) => ({ deleted: true, id: input.id }),
+        behavioralDriftConfig: {
+          ...DEFAULT_BEHAVIORAL_DRIFT_CONFIG,
+          baselineWindowDays: 1,
+          recentWindowHours: 6,
+          minCallsForBaseline: 10,
+        },
       });
 
       const now = new Date();
-      // Establish baseline of only notes.create (older than 6h)
-      for (let hour = 7; hour <= 24; hour++) {
-        await dbClient.insertActionEvent({
-          actionName: "notes.create",
-          actorType: "agent",
-          actorId: "test-agent",
-          input: { title: `Note ${hour}` },
-          output: { id: `note-${hour}` },
-          error: null,
-          permissionResult: "allow",
-          approvedBy: null,
-          parentEventId: null,
-          startedAt: new Date(now.getTime() - hour * 3600000),
-          durationMs: 10,
-          workspaceId: "ws-1",
-          blastRadius: null,
-        });
+      // Establish baseline of only notes.create (older than 6h, within 24h baseline window)
+      // Insert 2 events per hour for 13 hours (hours 8-20) = 26 events
+      for (let hour = 8; hour <= 20; hour++) {
+        for (let i = 0; i < 2; i++) {
+          await dbClient.insertActionEvent({
+            actionName: "notes.create",
+            actorType: "agent",
+            actorId: "test-agent",
+            input: { title: `Note ${hour}-${i}` },
+            output: { id: `note-${hour}-${i}` },
+            error: null,
+            permissionResult: "allow",
+            approvedBy: null,
+            parentEventId: null,
+            startedAt: new Date(now.getTime() - hour * 3600000),
+            durationMs: 10,
+            workspaceId: "ws-1",
+            blastRadius: null,
+          });
+        }
       }
 
       // Now attempt scope-widening call
@@ -943,26 +953,35 @@ describe("behavioral-drift", () => {
         permission: "customers.delete",
         inputSchema: z.object({ id: z.string() }),
         handler: async (input) => ({ deleted: true, id: input.id }),
+        behavioralDriftConfig: {
+          ...DEFAULT_BEHAVIORAL_DRIFT_CONFIG,
+          baselineWindowDays: 1,
+          recentWindowHours: 6,
+minCallsForBaseline: 10,
+        },
       });
 
       const now = new Date();
-      // Establish baseline of only notes.create (older than 6h)
-      for (let hour = 7; hour <= 24; hour++) {
-        await dbClient.insertActionEvent({
-          actionName: "notes.create",
-          actorType: "agent",
-          actorId: "test-agent",
-          input: { title: `Note ${hour}` },
-          output: { id: `note-${hour}` },
-          error: null,
-          permissionResult: "allow",
-          approvedBy: null,
-          parentEventId: null,
-          startedAt: new Date(now.getTime() - hour * 3600000),
-          durationMs: 10,
-          workspaceId: "ws-1",
-          blastRadius: null,
-        });
+      // Establish baseline of only notes.create (older than 6h, within 24h baseline window)
+      // Insert 2 events per hour for 13 hours (hours 8-20) = 26 events
+      for (let hour = 8; hour <= 20; hour++) {
+        for (let i = 0; i < 2; i++) {
+          await dbClient.insertActionEvent({
+            actionName: "notes.create",
+            actorType: "agent",
+            actorId: "test-agent",
+            input: { title: `Note ${hour}-${i}` },
+            output: { id: `note-${hour}-${i}` },
+            error: null,
+            permissionResult: "allow",
+            approvedBy: null,
+            parentEventId: null,
+            startedAt: new Date(now.getTime() - hour * 3600000),
+            durationMs: 10,
+            workspaceId: "ws-1",
+            blastRadius: null,
+          });
+        }
       }
 
       await expect(
@@ -984,13 +1003,13 @@ describe("behavioral-drift", () => {
       expect(state?.status).toBe("active");
       expect(state?.containmentReason).toBeNull();
 
-      // Should work now
-      const result = await customersDelete.execute(
-        { id: "cust-2" },
+      // Should work now - use notes.create which is in the baseline
+      const result = await notesCreate.execute(
+        { title: "After lift" },
         makeCtx(),
         dbClient
       );
-      expect(result.result).toEqual({ deleted: true, id: "cust-2" });
+      expect(result.result).toEqual({ id: "note-1", title: "After lift" });
     });
   });
 
@@ -1052,26 +1071,35 @@ describe("behavioral-drift", () => {
         permission: "customers.delete",
         inputSchema: z.object({ id: z.string() }),
         handler: async (input) => ({ deleted: true, id: input.id }),
+        behavioralDriftConfig: {
+          ...DEFAULT_BEHAVIORAL_DRIFT_CONFIG,
+          baselineWindowDays: 1,
+          recentWindowHours: 6,
+          minCallsForBaseline: 10,
+        },
       });
 
       const now = new Date();
-      // Establish baseline of only notes.create (older than 6h)
-      for (let hour = 7; hour <= 24; hour++) {
-        await dbClient.insertActionEvent({
-          actionName: "notes.create",
-          actorType: "agent",
-          actorId: "test-agent",
-          input: { title: `Note ${hour}` },
-          output: { id: `note-${hour}` },
-          error: null,
-          permissionResult: "allow",
-          approvedBy: null,
-          parentEventId: null,
-          startedAt: new Date(now.getTime() - hour * 3600000),
-          durationMs: 10,
-          workspaceId: "ws-1",
-          blastRadius: null,
-        });
+      // Establish baseline of only notes.create (older than 6h, within 24h baseline window)
+      // Insert 2 events per hour for 13 hours (hours 8-20) = 26 events
+      for (let hour = 8; hour <= 20; hour++) {
+        for (let i = 0; i < 2; i++) {
+          await dbClient.insertActionEvent({
+            actionName: "notes.create",
+            actorType: "agent",
+            actorId: "test-agent",
+            input: { title: `Note ${hour}-${i}` },
+            output: { id: `note-${hour}-${i}` },
+            error: null,
+            permissionResult: "allow",
+            approvedBy: null,
+            parentEventId: null,
+            startedAt: new Date(now.getTime() - hour * 3600000),
+            durationMs: 10,
+            workspaceId: "ws-1",
+            blastRadius: null,
+          });
+        }
       }
 
       // Trigger containment

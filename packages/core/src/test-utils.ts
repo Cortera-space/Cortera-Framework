@@ -96,6 +96,7 @@ export class InMemoryDbClient implements DbClient {
       status: state.status,
       containedAt: state.containedAt,
       containedReason: state.containedReason,
+      containmentReason: state.containmentReason,
       reviewedBy: state.reviewedBy,
       reviewedAt: state.reviewedAt,
     });
@@ -343,6 +344,7 @@ export class InMemoryDbClient implements DbClient {
           status: state.status,
           containedAt: state.containedAt ?? new Date(),
           containedReason: state.containedReason,
+          containmentReason: state.containmentReason,
           reviewedBy: state.reviewedBy,
           reviewedAt: state.reviewedAt,
         });

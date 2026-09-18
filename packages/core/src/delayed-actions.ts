@@ -7,12 +7,11 @@ import type {
   PendingDelayedAction,
   InsertActionEvent,
   BehavioralDriftConfig,
-  DEFAULT_BEHAVIORAL_DRIFT_CONFIG,
 } from "./types";
 import { ActionContainmentError, ActionPermissionError, ActionValidationError } from "./types";
 import { checkActorContainment, checkBlastRadius, containActorForBehavioralDrift } from "./containment";
 import { recordEvent, updateEvent } from "./event-log";
-import { runAllDetectors } from "./behavioral-drift";
+import { runAllDetectors, DEFAULT_BEHAVIORAL_DRIFT_CONFIG } from "./behavioral-drift";
 
 export async function cancelDelayedAction(
   dbClient: DbClient,
@@ -88,11 +87,16 @@ export async function processPendingDelayedActions(
       await checkActorContainment(dbClient, ctx.actor, ctx.workspaceId);
       await checkBlastRadius(dbClient, ctx, action);
 
-      // Behavioral drift detection at execution time
+      // Behavioral drift detection at execution time (only if action has behavioralDriftConfig and dbClient supports it)
       const driftConfig: BehavioralDriftConfig = (action as any).behavioralDriftConfig ?? DEFAULT_BEHAVIORAL_DRIFT_CONFIG;
-      const driftMatches = await runAllDetectors(dbClient, ctx.actor.actorId, ctx.workspaceId, driftConfig);
-      if (driftMatches.length > 0) {
-        await containActorForBehavioralDrift(dbClient, ctx, action, driftMatches);
+      const hasBehavioralDriftConfig = !!(action as any).behavioralDriftConfig;
+      const dbClientSupportsHistory = dbClient && typeof (dbClient as any).findActorCallHistory === "function";
+      
+      if (hasBehavioralDriftConfig && dbClientSupportsHistory) {
+        const driftMatches = await runAllDetectors(dbClient, ctx.actor.actorId, ctx.workspaceId, driftConfig, new Date(), action.permission);
+        if (driftMatches.length > 0) {
+          await containActorForBehavioralDrift(dbClient, ctx, action, driftMatches);
+        }
       }
     } catch (error) {
       if (error instanceof ActionContainmentError) {
