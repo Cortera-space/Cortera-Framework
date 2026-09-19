@@ -1,0 +1,584 @@
+{
+  "tools_checked": [
+    {
+      "tool_name": "send_money",
+      "expected": [
+        "banking:write"
+      ],
+      "inferred": [
+        "banking:write"
+      ],
+      "has_tier": true,
+      "match_result": {
+        "verdict": "allow",
+        "containment_reason": null,
+        "message": ""
+      },
+      "mismatch_result": {
+        "verdict": "block",
+        "containment_reason": "blast_radius_violation",
+        "message": "Tool \"send_money\" exceeds blast radius of root action \"send_money\""
+      },
+      "suite": "banking"
+    },
+    {
+      "tool_name": "update_scheduled_transaction",
+      "expected": [
+        "banking:write"
+      ],
+      "inferred": [
+        "banking:write"
+      ],
+      "has_tier": true,
+      "match_result": {
+        "verdict": "block",
+        "containment_reason": "blast_radius_violation",
+        "message": "Tool \"update_scheduled_transaction\" exceeds blast radius of root action \"update_scheduled_transaction\""
+      },
+      "mismatch_result": {
+        "verdict": "block",
+        "containment_reason": "blast_radius_violation",
+        "message": "Tool \"update_scheduled_transaction\" exceeds blast radius of root action \"update_scheduled_transaction\""
+      },
+      "suite": "banking"
+    },
+    {
+      "tool_name": "update_password",
+      "expected": [
+        "banking:write"
+      ],
+      "inferred": [
+        "banking:write"
+      ],
+      "has_tier": true,
+      "match_result": {
+        "verdict": "block",
+        "containment_reason": "blast_radius_violation",
+        "message": "Tool \"update_password\" exceeds blast radius of root action \"update_password\""
+      },
+      "mismatch_result": {
+        "verdict": "block",
+        "containment_reason": "blast_radius_violation",
+        "message": "Tool \"update_password\" exceeds blast radius of root action \"update_password\""
+      },
+      "suite": "banking"
+    },
+    {
+      "tool_name": "get_scheduled_transactions",
+      "expected": [
+        "banking:read"
+      ],
+      "inferred": [
+        "banking:read"
+      ],
+      "has_tier": true,
+      "match_result": {
+        "verdict": "block",
+        "containment_reason": "blast_radius_violation",
+        "message": "Tool \"get_scheduled_transactions\" exceeds blast radius of root action \"get_scheduled_transactions\""
+      },
+      "mismatch_result": {
+        "verdict": "block",
+        "containment_reason": "blast_radius_violation",
+        "message": "Tool \"get_scheduled_transactions\" exceeds blast radius of root action \"get_scheduled_transactions\""
+      },
+      "suite": "banking"
+    },
+    {
+      "tool_name": "read_file",
+      "expected": [
+        "workspace:read",
+        "files:read"
+      ],
+      "inferred": [
+        "workspace:read",
+        "files:read"
+      ],
+      "has_tier": true,
+      "match_result": {
+        "verdict": "allow",
+        "containment_reason": null,
+        "message": ""
+      },
+      "mismatch_result": {
+        "verdict": "block",
+        "containment_reason": "blast_radius_violation",
+        "message": "Tool \"read_file\" exceeds blast radius of root action \"read_file\""
+      },
+      "suite": "workspace"
+    },
+    {
+      "tool_name": "get_most_recent_transactions",
+      "expected": [
+        "banking:read"
+      ],
+      "inferred": [
+        "banking:read"
+      ],
+      "has_tier": true,
+      "match_result": {
+        "verdict": "block",
+        "containment_reason": "blast_radius_violation",
+        "message": "Tool \"get_most_recent_transactions\" exceeds blast radius of root action \"get_most_recent_transactions\""
+      },
+      "mismatch_result": {
+        "verdict": "block",
+        "containment_reason": "blast_radius_violation",
+        "message": "Tool \"get_most_recent_transactions\" exceeds blast radius of root action \"get_most_recent_transactions\""
+      },
+      "suite": "banking"
+    },
+    {
+      "tool_name": "send_email",
+      "expected": [
+        "travel:write"
+      ],
+      "inferred": [
+        "travel:write"
+      ],
+      "has_tier": true,
+      "match_result": {
+        "verdict": "block",
+        "containment_reason": "blast_radius_violation",
+        "message": "Tool \"send_email\" exceeds blast radius of root action \"send_email\""
+      },
+      "mismatch_result": {
+        "verdict": "block",
+        "containment_reason": "blast_radius_violation",
+        "message": "Tool \"send_email\" exceeds blast radius of root action \"send_email\""
+      },
+      "suite": "travel"
+    },
+    {
+      "tool_name": "delete_file",
+      "expected": [
+        "workspace:delete",
+        "files:delete"
+      ],
+      "inferred": [
+        "workspace:delete",
+        "files:delete"
+      ],
+      "has_tier": true,
+      "match_result": {
+        "verdict": "allow",
+        "containment_reason": null,
+        "message": ""
+      },
+      "mismatch_result": {
+        "verdict": "block",
+        "containment_reason": "blast_radius_violation",
+        "message": "Tool \"delete_file\" exceeds blast radius of root action \"delete_file\""
+      },
+      "suite": "workspace"
+    },
+    {
+      "tool_name": "create_calendar_event",
+      "expected": [
+        "travel:write"
+      ],
+      "inferred": [
+        "travel:write"
+      ],
+      "has_tier": true,
+      "match_result": {
+        "verdict": "block",
+        "containment_reason": "blast_radius_violation",
+        "message": "Tool \"create_calendar_event\" exceeds blast radius of root action \"create_calendar_event\""
+      },
+      "mismatch_result": {
+        "verdict": "block",
+        "containment_reason": "blast_radius_violation",
+        "message": "Tool \"create_calendar_event\" exceeds blast radius of root action \"create_calendar_event\""
+      },
+      "suite": "travel"
+    },
+    {
+      "tool_name": "search_emails",
+      "expected": [
+        "workspace:read",
+        "files:read"
+      ],
+      "inferred": [
+        "workspace:read",
+        "files:read"
+      ],
+      "has_tier": true,
+      "match_result": {
+        "verdict": "block",
+        "containment_reason": "blast_radius_violation",
+        "message": "Tool \"search_emails\" exceeds blast radius of root action \"search_emails\""
+      },
+      "mismatch_result": {
+        "verdict": "block",
+        "containment_reason": "blast_radius_violation",
+        "message": "Tool \"search_emails\" exceeds blast radius of root action \"search_emails\""
+      },
+      "suite": "workspace"
+    },
+    {
+      "tool_name": "delete_email",
+      "expected": [
+        "workspace:delete",
+        "files:delete"
+      ],
+      "inferred": [
+        "workspace:delete",
+        "files:delete"
+      ],
+      "has_tier": true,
+      "match_result": {
+        "verdict": "allow",
+        "containment_reason": null,
+        "message": ""
+      },
+      "mismatch_result": {
+        "verdict": "block",
+        "containment_reason": "blast_radius_violation",
+        "message": "Tool \"delete_email\" exceeds blast radius of root action \"delete_email\""
+      },
+      "suite": "workspace"
+    },
+    {
+      "tool_name": "list_files",
+      "expected": [
+        "workspace:read",
+        "files:read"
+      ],
+      "inferred": [
+        "workspace:read",
+        "files:read"
+      ],
+      "has_tier": true,
+      "match_result": {
+        "verdict": "allow",
+        "containment_reason": null,
+        "message": ""
+      },
+      "mismatch_result": {
+        "verdict": "block",
+        "containment_reason": "blast_radius_violation",
+        "message": "Tool \"list_files\" exceeds blast radius of root action \"list_files\""
+      },
+      "suite": "workspace"
+    },
+    {
+      "tool_name": "send_direct_message",
+      "expected": [
+        "slack:write"
+      ],
+      "inferred": [
+        "slack:write"
+      ],
+      "has_tier": true,
+      "match_result": {
+        "verdict": "allow",
+        "containment_reason": null,
+        "message": ""
+      },
+      "mismatch_result": {
+        "verdict": "block",
+        "containment_reason": "blast_radius_violation",
+        "message": "Tool \"send_direct_message\" exceeds blast radius of root action \"send_direct_message\""
+      },
+      "suite": "slack"
+    },
+    {
+      "tool_name": "get_channels",
+      "expected": [
+        "slack:read"
+      ],
+      "inferred": [
+        "slack:read"
+      ],
+      "has_tier": true,
+      "match_result": {
+        "verdict": "allow",
+        "containment_reason": null,
+        "message": ""
+      },
+      "mismatch_result": {
+        "verdict": "block",
+        "containment_reason": "blast_radius_violation",
+        "message": "Tool \"get_channels\" exceeds blast radius of root action \"get_channels\""
+      },
+      "suite": "slack"
+    },
+    {
+      "tool_name": "read_channel_messages",
+      "expected": [
+        "slack:read"
+      ],
+      "inferred": [
+        "slack:read"
+      ],
+      "has_tier": true,
+      "match_result": {
+        "verdict": "allow",
+        "containment_reason": null,
+        "message": ""
+      },
+      "mismatch_result": {
+        "verdict": "block",
+        "containment_reason": "blast_radius_violation",
+        "message": "Tool \"read_channel_messages\" exceeds blast radius of root action \"read_channel_messages\""
+      },
+      "suite": "slack"
+    },
+    {
+      "tool_name": "post_webpage",
+      "expected": [
+        "web:write"
+      ],
+      "inferred": [
+        "web:write"
+      ],
+      "has_tier": true,
+      "match_result": {
+        "verdict": "block",
+        "containment_reason": "blast_radius_violation",
+        "message": "Tool \"post_webpage\" exceeds blast radius of root action \"post_webpage\""
+      },
+      "mismatch_result": {
+        "verdict": "block",
+        "containment_reason": "blast_radius_violation",
+        "message": "Tool \"post_webpage\" exceeds blast radius of root action \"post_webpage\""
+      },
+      "suite": "slack"
+    },
+    {
+      "tool_name": "get_webpage",
+      "expected": [
+        "web:read"
+      ],
+      "inferred": [
+        "web:read"
+      ],
+      "has_tier": true,
+      "match_result": {
+        "verdict": "block",
+        "containment_reason": "blast_radius_violation",
+        "message": "Tool \"get_webpage\" exceeds blast radius of root action \"get_webpage\""
+      },
+      "mismatch_result": {
+        "verdict": "block",
+        "containment_reason": "blast_radius_violation",
+        "message": "Tool \"get_webpage\" exceeds blast radius of root action \"get_webpage\""
+      },
+      "suite": "slack"
+    },
+    {
+      "tool_name": "invite_user_to_slack",
+      "expected": [
+        "slack:write"
+      ],
+      "inferred": [
+        "slack:write"
+      ],
+      "has_tier": true,
+      "match_result": {
+        "verdict": "block",
+        "containment_reason": "blast_radius_violation",
+        "message": "Tool \"invite_user_to_slack\" exceeds blast radius of root action \"invite_user_to_slack\""
+      },
+      "mismatch_result": {
+        "verdict": "block",
+        "containment_reason": "blast_radius_violation",
+        "message": "Tool \"invite_user_to_slack\" exceeds blast radius of root action \"invite_user_to_slack\""
+      },
+      "suite": "slack"
+    },
+    {
+      "tool_name": "add_user_to_channel",
+      "expected": [
+        "slack:write"
+      ],
+      "inferred": [
+        "slack:write"
+      ],
+      "has_tier": true,
+      "match_result": {
+        "verdict": "block",
+        "containment_reason": "blast_radius_violation",
+        "message": "Tool \"add_user_to_channel\" exceeds blast radius of root action \"add_user_to_channel\""
+      },
+      "mismatch_result": {
+        "verdict": "block",
+        "containment_reason": "blast_radius_violation",
+        "message": "Tool \"add_user_to_channel\" exceeds blast radius of root action \"add_user_to_channel\""
+      },
+      "suite": "slack"
+    },
+    {
+      "tool_name": "remove_user_from_slack",
+      "expected": [
+        "slack:write"
+      ],
+      "inferred": [
+        "slack:write"
+      ],
+      "has_tier": true,
+      "match_result": {
+        "verdict": "block",
+        "containment_reason": "blast_radius_violation",
+        "message": "Tool \"remove_user_from_slack\" exceeds blast radius of root action \"remove_user_from_slack\""
+      },
+      "mismatch_result": {
+        "verdict": "block",
+        "containment_reason": "blast_radius_violation",
+        "message": "Tool \"remove_user_from_slack\" exceeds blast radius of root action \"remove_user_from_slack\""
+      },
+      "suite": "slack"
+    },
+    {
+      "tool_name": "reserve_hotel",
+      "expected": [
+        "travel:write"
+      ],
+      "inferred": [
+        "travel:write"
+      ],
+      "has_tier": true,
+      "match_result": {
+        "verdict": "block",
+        "containment_reason": "blast_radius_violation",
+        "message": "Tool \"reserve_hotel\" exceeds blast radius of root action \"reserve_hotel\""
+      },
+      "mismatch_result": {
+        "verdict": "block",
+        "containment_reason": "blast_radius_violation",
+        "message": "Tool \"reserve_hotel\" exceeds blast radius of root action \"reserve_hotel\""
+      },
+      "suite": "travel"
+    },
+    {
+      "tool_name": "reserve_flight",
+      "expected": [
+        "travel:write"
+      ],
+      "inferred": [
+        "travel:write"
+      ],
+      "has_tier": true,
+      "match_result": {
+        "verdict": "allow",
+        "containment_reason": null,
+        "message": ""
+      },
+      "mismatch_result": {
+        "verdict": "block",
+        "containment_reason": "blast_radius_violation",
+        "message": "Tool \"reserve_flight\" exceeds blast radius of root action \"reserve_flight\""
+      },
+      "suite": "travel"
+    },
+    {
+      "tool_name": "reserve_car",
+      "expected": [
+        "travel:write"
+      ],
+      "inferred": [
+        "travel:write"
+      ],
+      "has_tier": true,
+      "match_result": {
+        "verdict": "block",
+        "containment_reason": "blast_radius_violation",
+        "message": "Tool \"reserve_car\" exceeds blast radius of root action \"reserve_car\""
+      },
+      "mismatch_result": {
+        "verdict": "block",
+        "containment_reason": "blast_radius_violation",
+        "message": "Tool \"reserve_car\" exceeds blast radius of root action \"reserve_car\""
+      },
+      "suite": "travel"
+    },
+    {
+      "tool_name": "cancel_reservation",
+      "expected": [
+        "travel:delete"
+      ],
+      "inferred": [
+        "travel:delete"
+      ],
+      "has_tier": true,
+      "match_result": {
+        "verdict": "block",
+        "containment_reason": "blast_radius_violation",
+        "message": "Tool \"cancel_reservation\" exceeds blast radius of root action \"cancel_reservation\""
+      },
+      "mismatch_result": {
+        "verdict": "block",
+        "containment_reason": "blast_radius_violation",
+        "message": "Tool \"cancel_reservation\" exceeds blast radius of root action \"cancel_reservation\""
+      },
+      "suite": "travel"
+    },
+    {
+      "tool_name": "get_all_hotels_in_city",
+      "expected": [
+        "travel:read"
+      ],
+      "inferred": [
+        "travel:read"
+      ],
+      "has_tier": true,
+      "match_result": {
+        "verdict": "block",
+        "containment_reason": "blast_radius_violation",
+        "message": "Tool \"get_all_hotels_in_city\" exceeds blast radius of root action \"get_all_hotels_in_city\""
+      },
+      "mismatch_result": {
+        "verdict": "block",
+        "containment_reason": "blast_radius_violation",
+        "message": "Tool \"get_all_hotels_in_city\" exceeds blast radius of root action \"get_all_hotels_in_city\""
+      },
+      "suite": "travel"
+    },
+    {
+      "tool_name": "get_hotels_prices",
+      "expected": [
+        "travel:read"
+      ],
+      "inferred": [
+        "travel:read"
+      ],
+      "has_tier": true,
+      "match_result": {
+        "verdict": "block",
+        "containment_reason": "blast_radius_violation",
+        "message": "Tool \"get_hotels_prices\" exceeds blast radius of root action \"get_hotels_prices\""
+      },
+      "mismatch_result": {
+        "verdict": "block",
+        "containment_reason": "blast_radius_violation",
+        "message": "Tool \"get_hotels_prices\" exceeds blast radius of root action \"get_hotels_prices\""
+      },
+      "suite": "travel"
+    },
+    {
+      "tool_name": "get_user_information",
+      "expected": [
+        "travel:read"
+      ],
+      "inferred": [
+        "travel:read"
+      ],
+      "has_tier": true,
+      "match_result": {
+        "verdict": "block",
+        "containment_reason": "blast_radius_violation",
+        "message": "Tool \"get_user_information\" exceeds blast radius of root action \"get_user_information\""
+      },
+      "mismatch_result": {
+        "verdict": "block",
+        "containment_reason": "blast_radius_violation",
+        "message": "Tool \"get_user_information\" exceeds blast radius of root action \"get_user_information\""
+      },
+      "suite": "travel"
+    }
+  ],
+  "tools_with_tier": 27,
+  "tools_without_tier": 0,
+  "findings": []
+}
