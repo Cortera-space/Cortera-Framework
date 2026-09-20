@@ -314,9 +314,9 @@
       ],
       "has_tier": true,
       "match_result": {
-        "verdict": "allow",
-        "containment_reason": null,
-        "message": ""
+        "verdict": "block",
+        "containment_reason": "blast_radius_violation",
+        "message": "Tool \"read_channel_messages\" exceeds blast radius of root action \"read_channel_messages\""
       },
       "mismatch_result": {
         "verdict": "block",
@@ -377,9 +377,9 @@
       ],
       "has_tier": true,
       "match_result": {
-        "verdict": "block",
-        "containment_reason": "blast_radius_violation",
-        "message": "Tool \"invite_user_to_slack\" exceeds blast radius of root action \"invite_user_to_slack\""
+        "verdict": "allow",
+        "containment_reason": null,
+        "message": ""
       },
       "mismatch_result": {
         "verdict": "block",
@@ -398,9 +398,9 @@
       ],
       "has_tier": true,
       "match_result": {
-        "verdict": "block",
-        "containment_reason": "blast_radius_violation",
-        "message": "Tool \"add_user_to_channel\" exceeds blast radius of root action \"add_user_to_channel\""
+        "verdict": "allow",
+        "containment_reason": null,
+        "message": ""
       },
       "mismatch_result": {
         "verdict": "block",
