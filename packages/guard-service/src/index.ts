@@ -58,7 +58,10 @@ const ESCALATION_PATTERNS = [
 function getPermissionCategory(permission: string): number {
   const lower = permission.toLowerCase();
   if (lower.includes("write") || lower.includes("create") || lower.includes("delete") || 
-      lower.includes("update") || lower.includes("destroy") || lower.includes("execute")) {
+      lower.includes("update") || lower.includes("destroy") || lower.includes("execute") ||
+      lower.includes("reserve") || lower.includes("post") || lower.includes("invite") ||
+      lower.includes("send") || lower.includes("book") || lower.includes("pay") ||
+      lower.includes("transfer")) {
     return 3;
   }
   if (lower.includes("read:*") || lower.includes("list:*") || lower.includes("get:*") || lower.includes("view:*") ||
@@ -268,14 +271,19 @@ function inferBlastRadius(toolName: string): string[] {
   
   // Slack tools - check before workspace
   if (lower.includes("slack") || lower.includes("channel") || lower.includes("message")) {
-    if (lower.includes("read") || lower.includes("list") || lower.includes("get") || lower.includes("view") || lower.includes("channel")) {
-      return ["slack:read"];
-    }
-    if (lower.includes("post") || lower.includes("send") || lower.includes("write") || lower.includes("message")) {
+    // Check write operations FIRST (more specific)
+    if (lower.includes("post") || lower.includes("send") || lower.includes("write") || lower.includes("message") || lower.includes("invite") || lower.includes("add")) {
       return ["slack:write"];
     }
-    if (lower.includes("delete")) {
+    if (lower.includes("delete") || lower.includes("remove")) {
       return ["slack:delete"];
+    }
+    // Check read operations LAST
+    if (lower.includes("read") || lower.includes("list") || lower.includes("get") || lower.includes("view")) {
+      return ["slack:read"];
+    }
+    if (lower.includes("channel")) {
+      return ["slack:read"];
     }
     return ["slack:*"];
   }
