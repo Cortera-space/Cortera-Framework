@@ -7,15 +7,40 @@ import {
   type DbClient,
   type InsertActionEvent,
   type InsertActionApproval,
+  type ActionApproval,
+  type ActorState,
+  type InsertActorState,
+  type PaginatedResult,
+  type ContainedActor,
+  type PendingDelayedAction,
+  type InsertPendingDelayedAction,
+  type ListPendingDelayedActionsOptions,
+  type IrreversibleConfirmation,
+  type InsertIrreversibleConfirmation,
+  type ListPendingApprovalsOptions,
+  type PendingApprovalWithEvent,
+  type PendingIrreversibleConfirmationWithEvent,
+  type DataProvenance,
+  type InsertDataProvenance,
+  type ProvenanceTrace,
+  type ProvenanceTraceEntry,
+  type ActorBehaviorBaseline,
+  type InsertActorBehaviorBaseline,
+  type ActorCallHistoryEntry,
 } from "@tera/core";
 import { createMcpActionServer } from "../src/server";
 import { McpServer, InMemoryTransport } from "@modelcontextprotocol/server";
 
 function makeMockDbClient(): DbClient {
-  const events: InsertActionEvent[] = [];
-  const idMap = new Map<string, InsertActionEvent>();
-  const actorStates = new Map<string, { actorId: string; workspaceId: string; status: string; containedAt: Date | null; containedReason: string | null; reviewedBy: string | null; reviewedAt: Date | null }>();
+  const events: (InsertActionEvent & { _id: string })[] = [];
+  const idMap = new Map<string, InsertActionEvent & { _id: string }>();
+  const actorStates = new Map<string, ActorState>();
   const apiKeys = new Map<string, { id: string; keyHash: string; actorId: string; workspaceId: string; name: string; createdAt: Date; revokedAt: Date | null; lastUsedAt: Date | null }>();
+  const approvals: ActionApproval[] = [];
+  const pendingDelayedActions: (PendingDelayedAction & { id: string })[] = [];
+  const confirmations: (IrreversibleConfirmation & { id: string })[] = [];
+  const provenance: (DataProvenance & { id: string })[] = [];
+  const behaviorBaselines = new Map<string, ActorBehaviorBaseline>();
 
   // Pre-populate test API key
   const testKey = "test-key";
@@ -90,14 +115,28 @@ function makeMockDbClient(): DbClient {
     },
 
     async insertActionApproval(approval: InsertActionApproval): Promise<{ id: string }> {
-      return { id: `approval-${events.length + 1}` };
+      const id = `approval-${approvals.length + 1}`;
+      const record: ActionApproval = { ...approval, id };
+      approvals.push(record);
+      return { id };
     },
 
-    async updateActionApproval(_id: string, _event: Partial<InsertActionApproval>): Promise<void> {},
+    async updateActionApproval(id: string, event: Partial<InsertActionApproval>): Promise<void> {
+      const existing = approvals.find((a) => a.id === id);
+      if (existing) Object.assign(existing, event);
+    },
 
-    async findPendingApprovals(): Promise<any[]> { return []; },
-    async findAllPendingApprovals(): Promise<any[]> { return []; },
-    async findApprovalById(_id: string): Promise<any | null> { return null; },
+    async findPendingApprovals(workspaceId: string): Promise<ActionApproval[]> {
+      return approvals.filter((a) => a.status === "pending" && a.workspaceId === workspaceId);
+    },
+
+    async findAllPendingApprovals(): Promise<ActionApproval[]> {
+      return approvals.filter((a) => a.status === "pending");
+    },
+
+    async findApprovalById(id: string): Promise<ActionApproval | null> {
+      return approvals.find((a) => a.id === id) ?? null;
+    },
 
     async findEventById(id: string) {
       const stored = idMap.get(id);
@@ -110,34 +149,383 @@ function makeMockDbClient(): DbClient {
       };
     },
 
-    async findActorState(actorId: string, workspaceId: string): Promise<any | null> {
-      const key = `${actorId}:${workspaceId}`;
-      const state = actorStates.get(key);
-      if (!state) return null;
-      return {
-        actorId: state.actorId,
-        workspaceId: state.workspaceId,
-        status: state.status as any,
-        containedAt: state.containedAt,
-        containedReason: state.containedReason,
-        reviewedBy: state.reviewedBy,
-        reviewedAt: state.reviewedAt,
-      };
+    async findActorState(actorId: string, workspaceId: string): Promise<ActorState | null> {
+      return actorStates.get(`${actorId}:${workspaceId}`) ?? null;
     },
 
-    async upsertActorState(state: any): Promise<void> {
-      const key = `${state.actorId}:${state.workspaceId}`;
-      actorStates.set(key, {
+    async upsertActorState(state: InsertActorState): Promise<void> {
+      actorStates.set(`${state.actorId}:${state.workspaceId}`, {
         actorId: state.actorId,
         workspaceId: state.workspaceId,
         status: state.status,
         containedAt: state.containedAt,
         containedReason: state.containedReason,
+        containmentReason: state.containmentReason,
         reviewedBy: state.reviewedBy,
         reviewedAt: state.reviewedAt,
       });
     },
+
+    async listEvents(workspaceId: string, options?: any): Promise<PaginatedResult<any>> {
+      const { filters, limit = 50, cursor } = options ?? {};
+      let filtered = events.filter((e) => e.workspaceId === workspaceId);
+
+      if (filters?.actorType) {
+        filtered = filtered.filter((e) => e.actorType === filters.actorType);
+      }
+      if (filters?.actionName) {
+        filtered = filtered.filter((e) => e.actionName === filters.actionName);
+      }
+      if (filters?.permissionResult) {
+        filtered = filtered.filter((e) => e.permissionResult === filters.permissionResult);
+      }
+      if (filters?.from) {
+        filtered = filtered.filter((e) => e.startedAt >= filters.from!);
+      }
+      if (filters?.to) {
+        filtered = filtered.filter((e) => e.startedAt <= filters.to!);
+      }
+      if (filters?.dryRun !== undefined) {
+        filtered = filtered.filter((e) => e.dryRun === filters.dryRun);
+      } else {
+        filtered = filtered.filter((e) => e.dryRun !== true);
+      }
+      if (cursor) {
+        const cursorDate = new Date(cursor);
+        filtered = filtered.filter((e) => e.startedAt < cursorDate);
+      }
+
+      filtered.sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime());
+
+      const items = filtered.slice(0, limit).map((e) => ({
+        eventId: e._id,
+        actionName: e.actionName,
+        actorType: e.actorType,
+        actorId: e.actorId,
+        permissionResult: e.permissionResult,
+        status: "completed",
+        input: e.input,
+        output: e.output,
+        error: e.error,
+        parentEventId: e.parentEventId,
+        createdAt: e.startedAt,
+        updatedAt: e.startedAt,
+        dryRun: e.dryRun ?? false,
+      }));
+
+      const nextCursor = filtered.length > limit ? filtered[limit - 1].startedAt.toISOString() : null;
+      return { items, nextCursor };
+    },
+
+    async getEventWithChain(eventId: string, includeDryRun = false): Promise<any> {
+      const eventMap = new Map<string, any>();
+      const allEventIds = new Set<string>();
+
+      let currentId: string | null = eventId;
+      while (currentId) {
+        const event = events.find((e) => e._id === currentId);
+        if (!event) break;
+        if (!includeDryRun && event.dryRun) break;
+        allEventIds.add(currentId);
+        currentId = event.parentEventId ?? null;
+      }
+
+      const stack = [eventId];
+      while (stack.length > 0) {
+        const parentId = stack.pop()!;
+        const children = events.filter((e) => e.parentEventId === parentId && (includeDryRun || !e.dryRun));
+        for (const child of children) {
+          allEventIds.add(child._id);
+          stack.push(child._id);
+        }
+      }
+
+      for (const id of allEventIds) {
+        const event = events.find((e) => e._id === id);
+        if (!event) continue;
+        eventMap.set(id, {
+          eventId: event._id,
+          actionName: event.actionName,
+          actorType: event.actorType,
+          actorId: event.actorId,
+          permissionResult: event.permissionResult,
+          status: "completed",
+          input: event.input,
+          output: event.output,
+          error: event.error,
+          parentEventId: event.parentEventId,
+          createdAt: event.startedAt,
+          updatedAt: event.startedAt,
+          dryRun: event.dryRun,
+          ancestors: [],
+          descendants: [],
+        });
+      }
+
+      for (const event of eventMap.values()) {
+        if (event.parentEventId && eventMap.has(event.parentEventId)) {
+          const parent = eventMap.get(event.parentEventId)!;
+          parent.descendants.push(event);
+          event.ancestors.push(parent);
+        }
+      }
+
+      const targetEvent = eventMap.get(eventId);
+      if (!targetEvent) return null;
+
+      targetEvent.ancestors = [];
+      // buildFullAncestorChain would go here
+      return targetEvent;
+    },
+
+    async listContainedActors(workspaceId: string): Promise<ContainedActor[]> {
+      const contained: ContainedActor[] = [];
+      for (const state of actorStates.values()) {
+        if (state.workspaceId === workspaceId && (state.status === "contained" || state.status === "revoked")) {
+          contained.push({
+            actorId: state.actorId,
+            workspaceId: state.workspaceId,
+            status: state.status,
+            containedAt: state.containedAt ?? new Date(),
+            containedReason: state.containedReason,
+            containmentReason: state.containmentReason,
+            reviewedBy: state.reviewedBy,
+            reviewedAt: state.reviewedAt,
+          });
+        }
+      }
+      contained.sort((a, b) => b.containedAt.getTime() - a.containedAt.getTime());
+      return contained;
+    },
+
+    async listPendingApprovals(workspaceId: string, options?: ListPendingApprovalsOptions): Promise<PendingApprovalWithEvent[]> {
+      const { filters } = options ?? {};
+      let pending = approvals.filter((a) => a.status === "pending" && a.workspaceId === workspaceId);
+
+      if (filters?.actionName) {
+        pending = pending.filter((a) => a.actionName === filters.actionName);
+      }
+
+      pending.sort((a, b) => a.requestedAt.getTime() - b.requestedAt.getTime());
+
+      return pending.map((approval) => {
+        const event = events.find((e) => e._id === approval.actionEventId);
+        return {
+          approval: { ...approval },
+          event: {
+            actionName: event?.actionName ?? approval.actionName,
+            actorType: event?.actorType ?? approval.actorType,
+            actorId: event?.actorId ?? approval.actorId,
+            input: event?.input ?? approval.input,
+            requestedAt: event?.startedAt ?? approval.requestedAt,
+            expiresAt: approval.expiresAt,
+          },
+        };
+      });
+    },
+
+    // Delayed actions
+    async insertPendingDelayedAction(action: InsertPendingDelayedAction): Promise<{ id: string }> {
+      const id = `pending-${pendingDelayedActions.length + 1}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const record: PendingDelayedAction & { id: string } = {
+        id,
+        actionEventId: action.actionEventId,
+        actionName: action.actionName,
+        input: action.input,
+        actorId: action.actorId,
+        workspaceId: action.workspaceId,
+        scheduledRunAt: action.scheduledRunAt,
+        status: action.status ?? "pending",
+        createdAt: new Date(),
+      };
+      pendingDelayedActions.push(record);
+      return { id };
+    },
+
+    async updatePendingDelayedAction(id: string, action: Partial<InsertPendingDelayedAction>): Promise<void> {
+      const existing = pendingDelayedActions.find((a) => a.id === id);
+      if (existing) Object.assign(existing, action);
+    },
+
+    async findPendingDelayedActionById(id: string): Promise<PendingDelayedAction | null> {
+      return pendingDelayedActions.find((a) => a.id === id) ?? null;
+    },
+
+    async findPendingDelayedActions(workspaceId: string, options?: ListPendingDelayedActionsOptions): Promise<PaginatedResult<PendingDelayedAction>> {
+      const { filters, limit = 50, cursor } = options ?? {};
+      let filtered = pendingDelayedActions.filter((a) => a.workspaceId === workspaceId);
+
+      if (filters?.actionName) {
+        filtered = filtered.filter((a) => a.actionName === filters.actionName);
+      }
+      if (filters?.status) {
+        filtered = filtered.filter((a) => a.status === filters.status);
+      }
+      if (cursor) {
+        const cursorDate = new Date(cursor);
+        filtered = filtered.filter((a) => a.createdAt < cursorDate);
+      }
+
+      filtered.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+      const items = filtered.slice(0, limit);
+      const nextCursor = filtered.length > limit ? filtered[limit - 1].createdAt.toISOString() : null;
+      return { items, nextCursor };
+    },
+
+    async findPendingDelayedActionsDue(workspaceId: string): Promise<PendingDelayedAction[]> {
+      const now = new Date();
+      return pendingDelayedActions.filter(
+        (a) =>
+          a.workspaceId === workspaceId &&
+          a.status === "pending" &&
+          a.scheduledRunAt <= now
+      );
+    },
+
+    // Irreversible confirmations
+    async insertIrreversibleConfirmation(confirmation: InsertIrreversibleConfirmation): Promise<{ id: string }> {
+      const id = `confirmation-${confirmations.length + 1}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const record: IrreversibleConfirmation & { id: string } = {
+        ...confirmation,
+        id,
+        createdAt: new Date(),
+      };
+      confirmations.push(record);
+      return { id };
+    },
+
+    async findIrreversibleConfirmationByToken(token: string): Promise<IrreversibleConfirmation | null> {
+      return confirmations.find((c) => c.confirmationToken === token) ?? null;
+    },
+
+    async updateIrreversibleConfirmation(id: string, confirmation: Partial<InsertIrreversibleConfirmation>): Promise<void> {
+      const existing = confirmations.find((c) => c.id === id);
+      if (existing) Object.assign(existing, confirmation);
+    },
+
+    async findPendingIrreversibleConfirmations(): Promise<IrreversibleConfirmation[]> {
+      const now = new Date();
+      return confirmations.filter((c) => c.status === "pending" && c.expiresAt >= now);
+    },
+
+    async findAllPendingIrreversibleConfirmations(): Promise<IrreversibleConfirmation[]> {
+      return confirmations.filter((c) => c.status === "pending");
+    },
+
+    async listPendingIrreversibleConfirmations(workspaceId: string): Promise<PendingIrreversibleConfirmationWithEvent[]> {
+      const pending = confirmations.filter((c) => c.status === "pending" && c.workspaceId === workspaceId);
+      return pending.map((confirmation) => {
+        const event = events.find((e) => e._id === confirmation.actionEventId);
+        return {
+          confirmation: { ...confirmation },
+          event: {
+            actionName: event?.actionName ?? confirmation.actionName,
+            actorType: event?.actorType ?? "agent",
+            actorId: event?.actorId ?? confirmation.actorId,
+            input: event?.input ?? confirmation.input,
+            requestedAt: event?.startedAt ?? confirmation.createdAt,
+            expiresAt: confirmation.expiresAt,
+          },
+        };
+      });
+    },
+
+    // Provenance methods
+    async insertDataProvenance(p: InsertDataProvenance): Promise<{ id: string }> {
+      const id = `prov-${provenance.length + 1}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const record: DataProvenance & { id: string } = {
+        ...p,
+        id,
+        createdAt: new Date(),
+      };
+      provenance.push(record);
+      return { id };
+    },
+
+    async findDataProvenanceByEventId(eventId: string): Promise<DataProvenance[]> {
+      return provenance
+        .filter((p) => p.eventId === eventId)
+        .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+    },
+
+    async getProvenanceTrace(eventId: string): Promise<ProvenanceTrace | null> {
+      const event = events.find((e) => e._id === eventId);
+      if (!event) return null;
+
+      const outputProvenance = provenance
+        .filter((p) => p.eventId === eventId && p.fieldPath === "output")
+        .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+
+      const outputLabel = outputProvenance[0]?.label ?? "trusted";
+
+      const trace: ProvenanceTraceEntry[] = [];
+      buildProvenanceTrace(eventId, trace);
+
+      return { eventId, outputLabel, trace };
+    },
+
+    // Behavioral drift methods
+    async findActorBehaviorBaseline(actorId: string, workspaceId: string): Promise<ActorBehaviorBaseline | null> {
+      return behaviorBaselines.get(`${actorId}:${workspaceId}`) ?? null;
+    },
+
+    async upsertActorBehaviorBaseline(baseline: InsertActorBehaviorBaseline): Promise<void> {
+      behaviorBaselines.set(`${baseline.actorId}:${baseline.workspaceId}`, baseline as ActorBehaviorBaseline);
+    },
+
+    async findActorCallHistory(
+      actorId: string,
+      workspaceId: string,
+      from: Date,
+      to?: Date,
+      limit?: number
+    ): Promise<ActorCallHistoryEntry[]> {
+      let filtered = events.filter(
+        (e) => e.workspaceId === workspaceId && e.actorId === actorId && e.startedAt >= from
+      );
+
+      if (to) {
+        filtered = filtered.filter((e) => e.startedAt <= to!);
+      }
+
+      filtered.sort((a, b) => a.startedAt.getTime() - b.startedAt.getTime());
+
+      if (limit) {
+        filtered = filtered.slice(0, limit);
+      }
+
+      return filtered.map((e) => ({
+        actionName: e.actionName,
+        permissionKey: (e.error as any)?.violatingPermission ?? e.actionName,
+        timestamp: e.startedAt,
+        permissionResult: e.permissionResult as ActorCallHistoryEntry["permissionResult"],
+      }));
+    },
   };
+
+  function buildProvenanceTrace(eventId: string, trace: ProvenanceTraceEntry[]): void {
+    const provenanceRecords = provenance
+      .filter((p) => p.eventId === eventId)
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+
+    for (const p of provenanceRecords) {
+      const actionEvent = events.find((e) => e._id === p.eventId);
+      const entry: ProvenanceTraceEntry = {
+        eventId: p.eventId,
+        actionName: actionEvent?.actionName ?? "unknown",
+        fieldPath: p.fieldPath,
+        label: p.label,
+        sourceEventId: p.sourceEventId,
+        isSanitized: p.label === "trusted" && p.sourceEventId !== null,
+      };
+      trace.push(entry);
+
+      if (p.sourceEventId) {
+        buildProvenanceTrace(p.sourceEventId, trace);
+      }
+    }
+  }
 }
 
 function createTestServer(options?: Partial<Parameters<typeof createMcpActionServer>[0]>) {

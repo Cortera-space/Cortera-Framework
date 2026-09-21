@@ -559,3 +559,6 @@ export class InMemoryDbClient implements DbClient {
     }));
   }
 }
+
+// Compile-time check: verify InMemoryDbClient implements full DbClient interface
+const _dbClientCheck: DbClient = new InMemoryDbClient();

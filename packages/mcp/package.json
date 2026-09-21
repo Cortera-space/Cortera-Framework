@@ -1,7 +1,13 @@
 {
   "name": "@tera/mcp",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.1.0",
+  "description": "Model Context Protocol (MCP) server for Tera - exposes Actions as callable tools for AI agents",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tera-framework/tera.git",
+    "directory": "packages/mcp"
+  },
+  "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
   "exports": {
@@ -9,6 +15,9 @@
       "import": "./dist/index.js"
     }
   },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup src/index.ts --format esm --clean",
     "dev": "tsup src/index.ts --format esm --watch",

@@ -1,7 +1,13 @@
 {
   "name": "@tera/guard-service",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.1.0",
+  "description": "Standalone guard service for Tera - HTTP API for action execution, approvals, containment review, and observability queries",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tera-framework/tera.git",
+    "directory": "packages/guard-service"
+  },
+  "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -11,6 +17,9 @@
       "import": "./dist/index.js"
     }
   },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup src/index.ts --format esm --clean --tsconfig tsconfig.json --no-dts",
     "dev": "tsup src/index.ts --format esm --watch --tsconfig tsconfig.json --no-dts",

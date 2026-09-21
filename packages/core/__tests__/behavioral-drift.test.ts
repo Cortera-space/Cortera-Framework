@@ -21,6 +21,10 @@ import {
   type ActorCallHistoryEntry,
   type BehavioralDriftConfig,
   type DriftDetectorMatch,
+  type DataProvenance,
+  type InsertDataProvenance,
+  type ProvenanceTrace,
+  type ProvenanceTraceEntry,
 } from "../src/index";
 
 const makeCtx = (overrides?: Partial<ActionContext>): ActionContext => ({
@@ -33,6 +37,7 @@ class MockDbClient implements DbClient {
   public events: Array<InsertActionEvent & { id: string; _id?: string }> = [];
   public actorStates = new Map<string, any>();
   public behaviorBaselines = new Map<string, ActorBehaviorBaseline>();
+  public provenance: Array<DataProvenance & { id: string }> = [];
 
   async insertActionEvent(event: InsertActionEvent): Promise<{ id: string }> {
     const id = `event-${this.events.length + 1}`;
@@ -198,6 +203,69 @@ class MockDbClient implements DbClient {
       timestamp: e.startedAt,
       permissionResult: e.permissionResult as ActorCallHistoryEntry["permissionResult"],
     }));
+  }
+
+  // Provenance methods
+  async insertDataProvenance(provenance: InsertDataProvenance): Promise<{ id: string }> {
+    const id = `prov-${this.provenance.length + 1}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const record: DataProvenance & { id: string } = {
+      ...provenance,
+      id,
+      createdAt: new Date(),
+    };
+    this.provenance.push(record);
+    return { id };
+  }
+
+  async findDataProvenanceByEventId(eventId: string): Promise<DataProvenance[]> {
+    return this.provenance
+      .filter((p) => p.eventId === eventId)
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+  }
+
+  async getProvenanceTrace(eventId: string): Promise<ProvenanceTrace | null> {
+    const event = this.events.find((e) => e._id === eventId);
+    if (!event) {
+      return null;
+    }
+
+    const outputProvenance = this.provenance
+      .filter((p) => p.eventId === eventId && p.fieldPath === "output")
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+
+    const outputLabel = outputProvenance[0]?.label ?? "trusted";
+
+    const trace: ProvenanceTraceEntry[] = [];
+    this.buildProvenanceTrace(eventId, trace);
+
+    return {
+      eventId,
+      outputLabel,
+      trace,
+    };
+  }
+
+  private buildProvenanceTrace(eventId: string, trace: ProvenanceTraceEntry[]): void {
+    const provenanceRecords = this.provenance
+      .filter((p) => p.eventId === eventId)
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+
+    for (const p of provenanceRecords) {
+      const actionEvent = this.events.find((e) => e._id === p.eventId);
+      const entry: ProvenanceTraceEntry = {
+        eventId: p.eventId,
+        actionName: actionEvent?.actionName ?? "unknown",
+        fieldPath: p.fieldPath,
+        label: p.label,
+        sourceEventId: p.sourceEventId,
+        isSanitized: p.label === "trusted" && p.sourceEventId !== null,
+      };
+      trace.push(entry);
+
+      if (p.sourceEventId) {
+        this.buildProvenanceTrace(p.sourceEventId, trace);
+      }
+    }
   }
 }
 

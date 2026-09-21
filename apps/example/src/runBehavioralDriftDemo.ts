@@ -69,7 +69,11 @@ async function runDemo() {
 
   console.log("Phase 2: Normal operation - notes.create continues to work");
   const result1 = await notesCreate.execute({ title: "Normal note" }, ctx, db);
-  console.log(`  Result: ${JSON.stringify(result1.result)}\n`);
+  if ("result" in result1) {
+    console.log(`  Result: ${JSON.stringify(result1.result)}\n`);
+  } else {
+    console.log(`  Result: ${JSON.stringify(result1)}\n`);
+  }
 
   console.log("Phase 3: Scope widening attempt - customers.delete (new action type)");
   try {
@@ -102,7 +106,11 @@ async function runDemo() {
 
   console.log("Phase 7: Normal operation restored");
   const result2 = await notesCreate.execute({ title: "After lift" }, ctx, db);
-  console.log(`  Result: ${JSON.stringify(result2.result)}\n`);
+  if ("result" in result2) {
+    console.log(`  Result: ${JSON.stringify(result2.result)}\n`);
+  } else {
+    console.log(`  Result: ${JSON.stringify(result2)}\n`);
+  }
 
   console.log("=== Demo Complete ===");
 }
