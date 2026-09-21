@@ -16,6 +16,13 @@ import {
   type ListPendingDelayedActionsOptions,
   type WorkspaceContact,
   type WorkspaceContactResolver,
+  type InsertDataProvenance,
+  type DataProvenance,
+  type ProvenanceTrace,
+  type ProvenanceTraceEntry,
+  type ActorBehaviorBaseline,
+  type InsertActorBehaviorBaseline,
+  type ActorCallHistoryEntry,
 } from "@tera/core";
 import { resolveActorFromRequest } from "@tera/adapter-next";
 import { deleteWorkspaceAction } from "@/actions/deleteWorkspace";
@@ -45,6 +52,23 @@ class InMemoryDbClient implements DbClient {
   private approvals: Array<ActionApproval> = [];
   private apiKeys = new Map<string, { id: string; keyHash: string; actorId: string; workspaceId: string; name: string; createdAt: Date; revokedAt: Date | null; lastUsedAt: Date | null }>();
   public pendingDelayedActions: Array<PendingDelayedAction & { id: string }> = [];
+  private confirmations: Array<{
+    id: string;
+    actionEventId: string;
+    actionName: string;
+    input: unknown;
+    actorId: string;
+    workspaceId: string;
+    confirmationToken: string;
+    channel: string;
+    sentTo: string;
+    status: "pending" | "confirmed" | "expired" | "rejected";
+    expiresAt: Date;
+    confirmedAt: Date | null;
+    createdAt: Date;
+  }> = [];
+  public provenance: Array<DataProvenance & { id: string }> = [];
+  public behaviorBaselines = new Map<string, ActorBehaviorBaseline>();
 
   constructor() {
     // Pre-populate test API keys for backward compatibility with tests
@@ -174,6 +198,7 @@ class InMemoryDbClient implements DbClient {
       status: state.status,
       containedAt: state.containedAt,
       containedReason: state.containedReason,
+      containmentReason: state.containmentReason,
       reviewedBy: state.reviewedBy,
       reviewedAt: state.reviewedAt,
     });
@@ -352,6 +377,7 @@ class InMemoryDbClient implements DbClient {
           status: state.status,
           containedAt: state.containedAt ?? new Date(),
           containedReason: state.containedReason,
+          containmentReason: state.containmentReason,
           reviewedBy: state.reviewedBy,
           reviewedAt: state.reviewedAt,
         });
@@ -458,22 +484,6 @@ class InMemoryDbClient implements DbClient {
     );
   }
 
-  // Irreversible confirmation methods
-  private confirmations: Array<{
-    id: string;
-    actionEventId: string;
-    actionName: string;
-    input: unknown;
-    actorId: string;
-    workspaceId: string;
-    confirmationToken: string;
-    channel: string;
-    sentTo: string;
-    status: "pending" | "confirmed" | "expired" | "rejected";
-    expiresAt: Date;
-    confirmedAt: Date | null;
-    createdAt: Date;
-  }> = [];
 
   async insertIrreversibleConfirmation(confirmation: {
     actionEventId: string;
@@ -528,6 +538,107 @@ class InMemoryDbClient implements DbClient {
           },
         };
       });
+  }
+
+  // Provenance methods
+  async insertDataProvenance(provenance: InsertDataProvenance): Promise<{ id: string }> {
+    const id = `prov-${this.provenance.length + 1}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const record: DataProvenance & { id: string } = {
+      ...provenance,
+      id,
+      createdAt: new Date(),
+    };
+    this.provenance.push(record);
+    return { id };
+  }
+
+  async findDataProvenanceByEventId(eventId: string): Promise<DataProvenance[]> {
+    return this.provenance
+      .filter((p) => p.eventId === eventId)
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+  }
+
+  async getProvenanceTrace(eventId: string): Promise<ProvenanceTrace | null> {
+    const event = this.events.find((e) => e.id === eventId);
+    if (!event) {
+      return null;
+    }
+
+    const outputProvenance = this.provenance
+      .filter((p) => p.eventId === eventId && p.fieldPath === "output")
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+
+    const outputLabel = outputProvenance[0]?.label ?? "trusted";
+
+    const trace: ProvenanceTraceEntry[] = [];
+    this.buildProvenanceTrace(eventId, trace);
+
+    return {
+      eventId,
+      outputLabel,
+      trace,
+    };
+  }
+
+  private buildProvenanceTrace(eventId: string, trace: ProvenanceTraceEntry[]): void {
+    const provenanceRecords = this.provenance
+      .filter((p) => p.eventId === eventId)
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+
+    for (const p of provenanceRecords) {
+      const actionEvent = this.events.find((e) => e.id === p.eventId);
+      const entry: ProvenanceTraceEntry = {
+        eventId: p.eventId,
+        actionName: actionEvent?.actionName ?? "unknown",
+        fieldPath: p.fieldPath,
+        label: p.label,
+        sourceEventId: p.sourceEventId,
+        isSanitized: p.label === "trusted" && p.sourceEventId !== null,
+      };
+      trace.push(entry);
+
+      if (p.sourceEventId) {
+        this.buildProvenanceTrace(p.sourceEventId, trace);
+      }
+    }
+  }
+
+  // Behavioral drift methods
+  async findActorBehaviorBaseline(actorId: string, workspaceId: string): Promise<ActorBehaviorBaseline | null> {
+    return this.behaviorBaselines.get(`${actorId}:${workspaceId}`) ?? null;
+  }
+
+  async upsertActorBehaviorBaseline(baseline: InsertActorBehaviorBaseline): Promise<void> {
+    this.behaviorBaselines.set(`${baseline.actorId}:${baseline.workspaceId}`, baseline as ActorBehaviorBaseline);
+  }
+
+  async findActorCallHistory(
+    actorId: string,
+    workspaceId: string,
+    from: Date,
+    to?: Date,
+    limit?: number
+  ): Promise<ActorCallHistoryEntry[]> {
+    let filtered = this.events.filter(
+      (e) => e.workspaceId === workspaceId && e.actorId === actorId && e.startedAt >= from
+    );
+
+    if (to) {
+      filtered = filtered.filter((e) => e.startedAt <= to!);
+    }
+
+    filtered.sort((a, b) => a.startedAt.getTime() - b.startedAt.getTime());
+
+    if (limit) {
+      filtered = filtered.slice(0, limit);
+    }
+
+    return filtered.map((e) => ({
+      actionName: e.actionName,
+      permissionKey: (e.error as any)?.violatingPermission ?? e.actionName,
+      timestamp: e.startedAt,
+      permissionResult: e.permissionResult as ActorCallHistoryEntry["permissionResult"],
+    }));
   }
 }
 
