@@ -31,7 +31,7 @@ async function setupTestProject() {
       version: "0.0.0",
       type: "module",
       dependencies: {
-        "@tera/core": "workspace:*",
+        "@cortera/core": "workspace:*",
         "zod": "^3.22.0",
       },
     }, null, 2)
@@ -112,7 +112,7 @@ describe("tera check", () => {
     await writeFile(
       resolve(TEST_PROJECT_DIR, "src/actions/testAction.ts"),
       `import { z } from "zod";
-import { defineAction } from "@tera/core";
+import { defineAction } from "@cortera/core";
 
 export const testAction = defineAction({
   name: "testAction",
@@ -132,7 +132,7 @@ export const testAction = defineAction({
     await writeFile(
       resolve(TEST_PROJECT_DIR, "src/actions/completeAction.ts"),
       `import { z } from "zod";
-import { defineAction } from "@tera/core";
+import { defineAction } from "@cortera/core";
 
 export const completeAction = defineAction({
   name: "completeAction",
@@ -154,7 +154,7 @@ export const completeAction = defineAction({
     await writeFile(
       resolve(TEST_PROJECT_DIR, "src/actions/badAction.ts"),
       `import { z } from "zod";
-import { defineAction } from "@tera/core";
+import { defineAction } from "@cortera/core";
 
 export const badAction = defineAction({
   name: "badAction",
@@ -174,7 +174,7 @@ export const badAction = defineAction({
     await writeFile(
       resolve(TEST_PROJECT_DIR, "src/actions/todoAction.ts"),
       `import { z } from "zod";
-import { defineAction } from "@tera/core";
+import { defineAction } from "@cortera/core";
 
 export const todoAction = defineAction({
   name: "todoAction",
@@ -194,7 +194,7 @@ export const todoAction = defineAction({
     await writeFile(
       resolve(TEST_PROJECT_DIR, "src/actions/defaultTtlAction.ts"),
       `import { z } from "zod";
-import { defineAction } from "@tera/core";
+import { defineAction } from "@cortera/core";
 
 export const defaultTtlAction = defineAction({
   name: "defaultTtlAction",

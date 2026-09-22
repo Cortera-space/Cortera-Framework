@@ -1,12 +1,12 @@
 "use client";
 
 import { createNoteAction, deleteCustomerAction, notifyWatchersAction } from "@/lib/registry";
-import { ActionForm, ActionButton } from "@tera/ui";
+import { ActionForm, ActionButton } from "@cortera/ui";
 
 export default function Home() {
   return (
     <main style={{ padding: "2rem", fontFamily: "system-ui, sans-serif" }}>
-      <h1>Tera Example App</h1>
+      <h1>Cortera Framework Example App</h1>
       <p>This page demonstrates auto-generated Action forms and triggers.</p>
 
       <section style={{ marginBottom: "2rem" }}>

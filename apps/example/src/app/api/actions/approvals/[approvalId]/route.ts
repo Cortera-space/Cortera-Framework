@@ -5,7 +5,7 @@ import {
   resolveActorFromRequest,
   defaultWorkspaceId,
 } from "@/lib/registry";
-import { createApprovalRouteHandler } from "@tera/adapter-next";
+import { createApprovalRouteHandler } from "@cortera/adapter-next";
 
 const approvalHandler = createApprovalRouteHandler({
   dbClient,

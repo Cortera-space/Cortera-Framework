@@ -27,7 +27,7 @@ import {
   type ActorBehaviorBaseline,
   type InsertActorBehaviorBaseline,
   type ActorCallHistoryEntry,
-} from "@tera/core";
+} from "@cortera/core";
 import { createMcpActionServer } from "../src/server";
 import { McpServer, InMemoryTransport } from "@modelcontextprotocol/server";
 
@@ -551,7 +551,7 @@ async function mcpRoundTrip(
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
 
   const mcpServer = await factory({
-    requestInfo: new Request("http://localhost", { headers: { "x-tera-api-key": "test-key" } }),
+    requestInfo: new Request("http://localhost", { headers: { "x-cortera-api-key": "test-key" } }),
     era: "legacy",
   });
   mcpServer.connect(serverTransport);
@@ -572,7 +572,7 @@ async function mcpRoundTrip(
 
   const params = { ...request.params };
   if (parentEventId) {
-    params._meta = { "x-tera-parent-event-id": parentEventId };
+    params._meta = { "x-cortera-parent-event-id": parentEventId };
   }
 
   clientTransport.send({ ...request, id: 2, params });

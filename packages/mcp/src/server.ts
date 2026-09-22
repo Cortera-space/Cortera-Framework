@@ -56,7 +56,7 @@ export function createMcpActionServer(options: McpActionServerOptions): McpActio
 
   const factory = async (ctx: McpRequestContext) => {
     const server = new McpServer({
-      name: "tera-actions",
+      name: "cortera-actions",
       version: "1.0.0",
     });
 
@@ -69,7 +69,7 @@ export function createMcpActionServer(options: McpActionServerOptions): McpActio
         },
         async (rawInput: unknown) => {
           const apiKey =
-            ctx.requestInfo?.headers.get("x-tera-api-key") ??
+            ctx.requestInfo?.headers.get("x-cortera-api-key") ??
             ctx.authInfo?.extra?.apiKey;
 
           let actor: Actor;

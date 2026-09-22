@@ -16,8 +16,8 @@
     "rootDir": "src",
     "baseUrl": ".",
     "paths": {
-      "@tera/core": ["../../packages/core/src/index.ts"],
-      "@tera/db": ["../../packages/db/src/index.ts"]
+      "@cortera/core": ["../../packages/core/src/index.ts"],
+      "@cortera/db": ["../../packages/db/src/index.ts"]
     }
   },
   "include": ["src/**/*.ts"],

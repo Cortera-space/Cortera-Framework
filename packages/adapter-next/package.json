@@ -27,8 +27,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@tera/auth": "workspace:*",
-    "@tera/core": "workspace:*"
+    "@cortera/auth": "workspace:*",
+    "@cortera/core": "workspace:*"
   },
   "peerDependencies": {
     "next": "^14.0.0"

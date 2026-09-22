@@ -1,4 +1,4 @@
-import type { DefinedAction } from "@tera/core";
+import type { DefinedAction } from "@cortera/core";
 import { zodToJsonSchema } from "zod-to-json-schema";
 
 interface JsonSchema {

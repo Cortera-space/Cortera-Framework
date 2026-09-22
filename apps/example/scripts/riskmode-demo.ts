@@ -19,7 +19,7 @@ import {
   cancelDelayedAction,
   processPendingDelayedActions,
   type ActionContext,
-} from "@tera/core";
+} from "@cortera/core";
 
 // Create registry and permission engine
 const registry = new ActionRegistry();

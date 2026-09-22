@@ -1,12 +1,12 @@
-# Tera
+# Cortera Framework
 
 **Define once. Ship to humans and agents alike.**
 
 ---
 
-## Why Tera
+## Why Cortera Framework
 
-Modern apps increasingly need to be usable by both humans and AI agents, and both need to be observable and safe by default. Most frameworks bolt these concerns on after the fact — a separate APM vendor for tracing, a separate tool-schema layer for agent access, a separate audit log for compliance. Tera builds all three into its core primitive from day one.
+Modern apps increasingly need to be usable by both humans and AI agents, and both need to be observable and safe by default. Most frameworks bolt these concerns on after the fact — a separate APM vendor for tracing, a separate tool-schema layer for agent access, a separate audit log for compliance. Cortera Framework builds all three into its core primitive from day one.
 
 - **Observability-first** — every request, mutation, and error automatically produces structured traces and events. No APM vendor required.
 - **Agent-native** — every route/action is automatically exposed as both a UI trigger and a callable tool schema, with built-in permissions and audit logging.
@@ -16,16 +16,16 @@ Modern apps increasingly need to be usable by both humans and AI agents, and bot
 
 ## The Core Primitive: Action
 
-Everything in Tera is built on the **Action** — a single definition that auto-generates:
+Everything in Cortera Framework is built on the **Action** — a single definition that auto-generates:
 
 - A **REST endpoint** (POST `/actions/:name`)
 - An **MCP tool schema** (for agent calling via Model Context Protocol)
-- A **UI form/trigger** (React component via `@tera/ui`)
+- A **UI form/trigger** (React component via `@cortera/ui`)
 - A **trace span** (structured audit log entry in Postgres)
 
 ```ts
 import { z } from "zod";
-import { defineAction } from "@tera/core";
+import { defineAction } from "@cortera/core";
 
 export const createInvoiceAction = defineAction({
   name: "createInvoice",
@@ -47,11 +47,11 @@ export const createInvoiceAction = defineAction({
 
 ---
 
-## Benchmark: Tera vs Raw Next.js vs tRPC+Zod
+## Benchmark: Cortera Framework vs Raw Next.js vs tRPC+Zod
 
 We built the same `createInvoice` feature three ways and measured the difference:
 
-| Metric | Raw Next.js | tRPC + Zod | **Tera** |
+| Metric | Raw Next.js | tRPC + Zod | **Cortera Framework** |
 |--------|-------------|------------|----------|
 | **Implementation LOC** | 606 | 565 | **124** |
 | **Implementation Files** | 8 | 12 | **6** |
@@ -60,7 +60,7 @@ We built the same `createInvoice` feature three ways and measured the difference
 | **Agent-Callability by Default** | ❌ Manual | ❌ Manual | ✅ Automatic (MCP + OpenAPI) |
 | **Approx. Implementation Time** | ~45 min | ~35 min | **~5 min** |
 
-**The drift test is the key metric**: adding a `notes` field required editing **5 files** in both Raw Next.js and tRPC+Zod (types, DB, API route, form, OpenAPI), but only **1 file** in Tera (the single `defineAction` call). Everything else — audit log, React form, MCP tool schema, OpenAPI — is generated automatically from that one Zod schema.
+**The drift test is the key metric**: adding a `notes` field required editing **5 files** in both Raw Next.js and tRPC+Zod (types, DB, API route, form, OpenAPI), but only **1 file** in Cortera Framework (the single `defineAction` call). Everything else — audit log, React form, MCP tool schema, OpenAPI — is generated automatically from that one Zod schema.
 
 ---
 
@@ -75,9 +75,9 @@ We built the same `createInvoice` feature three ways and measured the difference
 ### 1. Install
 
 ```bash
-npm install @tera/core @tera/db @tera/adapter-next @tera/ui @tera/mcp @tera/auth
+npm install @cortera/core @cortera/db @cortera/adapter-next @cortera/ui @cortera/mcp @cortera/auth
 # or with pnpm
-pnpm add @tera/core @tera/db @tera/adapter-next @tera/ui @tera/mcp @tera/auth
+pnpm add @cortera/core @cortera/db @cortera/adapter-next @cortera/ui @cortera/mcp @cortera/auth
 ```
 
 ### 2. Configure Database
@@ -85,13 +85,13 @@ pnpm add @tera/core @tera/db @tera/adapter-next @tera/ui @tera/mcp @tera/auth
 Create a `.env.local` with your database connection:
 
 ```bash
-DATABASE_URL="postgresql://user:pass@localhost:5432/tera"
+DATABASE_URL="postgresql://user:pass@localhost:5432/cortera"
 ```
 
 ### 3. Run Migrations
 
 ```bash
-npx tera migrate
+npx cortera migrate
 ```
 
 This creates the `action_events`, `action_approvals`, `actor_states`, `pending_delayed_actions`, `irreversible_confirmations`, and `api_keys` tables.
@@ -102,7 +102,7 @@ Create `src/actions/createInvoice.ts`:
 
 ```ts
 import { z } from "zod";
-import { defineAction } from "@tera/core";
+import { defineAction } from "@cortera/core";
 
 export const createInvoiceAction = defineAction({
   name: "createInvoice",
@@ -127,8 +127,8 @@ export const createInvoiceAction = defineAction({
 Create `src/lib/registry.ts`:
 
 ```ts
-import { ActionRegistry, InMemoryPermissionEngine } from "@tera/core";
-import { PostgresDbClient } from "@tera/db";
+import { ActionRegistry, InMemoryPermissionEngine } from "@cortera/core";
+import { PostgresDbClient } from "@cortera/db";
 import { createInvoiceAction } from "@/actions/createInvoice";
 
 export const registry = new ActionRegistry();
@@ -150,7 +150,7 @@ Create `src/app/api/actions/[actionName]/route.ts`:
 ```ts
 import { NextRequest, NextResponse } from "next/server";
 import { registry, dbClient, permissionEngine, defaultWorkspaceId } from "@/lib/registry";
-import { createActionHandler, resolveActorFromRequest } from "@tera/adapter-next";
+import { createActionHandler, resolveActorFromRequest } from "@cortera/adapter-next";
 
 const actionHandler = createActionHandler({
   registry,
@@ -177,7 +177,7 @@ export async function GET(_req: NextRequest, { params }: { params: { actionName:
 
 ```tsx
 // src/app/invoice/page.tsx
-import { ActionForm } from "@tera/ui";
+import { ActionForm } from "@cortera/ui";
 import { createInvoiceAction } from "@/actions/createInvoice";
 
 export default function InvoicePage() {
@@ -192,7 +192,7 @@ export default function InvoicePage() {
 ```ts
 // src/app/api/mcp/route.ts
 import { createMcpHandler } from "@mcp/server";
-import { createMcpActionServer } from "@tera/mcp";
+import { createMcpActionServer } from "@cortera/mcp";
 import { registry, dbClient, permissionEngine, defaultWorkspaceId } from "@/lib/registry";
 
 const mcpServer = createMcpActionServer({ registry, dbClient, permissionEngine, defaultWorkspaceId });
@@ -204,7 +204,7 @@ export const { GET, POST, DELETE } = createMcpHandler(mcpServer.factory);
 ```bash
 curl -X POST http://localhost:3000/api/actions/createInvoice \
   -H "Content-Type: application/json" \
-  -H "x-tera-api-key: tera_abc123..." \
+  -H "x-cortera-api-key: cortera_abc123..." \
   -d '{"customerId": "cust-1", "amount": 99.99, "dueDate": "2024-12-31T23:59:59Z"}'
 ```
 
@@ -247,10 +247,10 @@ There are **no separate code paths** for human vs. agent callers. Permission che
 
 | Surface | Package | How It's Generated |
 |---------|---------|-------------------|
-| **REST** | `@tera/adapter-next` | `createActionHandler` wraps `action.execute()` |
-| **MCP** | `@tera/mcp` | `createMcpActionServer` converts Zod → JSON Schema |
-| **UI Form** | `@tera/ui` | `<ActionForm action={...} />` renders from Zod |
-| **Audit Log** | `@tera/core` | Automatic `action_events` row on every execution |
+| **REST** | `@cortera/adapter-next` | `createActionHandler` wraps `action.execute()` |
+| **MCP** | `@cortera/mcp` | `createMcpActionServer` converts Zod → JSON Schema |
+| **UI Form** | `@cortera/ui` | `<ActionForm action={...} />` renders from Zod |
+| **Audit Log** | `@cortera/core` | Automatic `action_events` row on every execution |
 
 ---
 
@@ -264,7 +264,7 @@ Every Action declares a `blastRadius` — the set of downstream permissions it's
 blastRadius: ["invoices:*", "notifications:send"]
 ```
 
-If a live action chain tries to exceed its declared scope, Tera **freezes that actor** — all future calls from that actor in that workspace auto-deny immediately until a human reviews and lifts containment.
+If a live action chain tries to exceed its declared scope, Cortera Framework **freezes that actor** — all future calls from that actor in that workspace auto-deny immediately until a human reviews and lifts containment.
 
 **Worked Example:**
 
@@ -336,7 +336,7 @@ const result = await createInvoiceAction.execute(input, ctx, db, perms, { dryRun
 
 ## API Reference
 
-### `@tera/core`
+### `@cortera/core`
 
 | Export | Description |
 |--------|-------------|
@@ -360,14 +360,14 @@ const result = await createInvoiceAction.execute(input, ctx, db, perms, { dryRun
 | `rollbackAction(db, eventId, actor)` | Execute rollback for a delayed action |
 | `InMemoryDbClient` | In-memory DbClient for testing |
 
-### `@tera/db`
+### `@cortera/db`
 
 | Export | Description |
 |--------|-------------|
 | `PostgresDbClient` | PostgreSQL implementation of `DbClient` |
 | `PostgresDbClientOptions` | `{ connectionString: string }` |
 
-### `@tera/adapter-next`
+### `@cortera/adapter-next`
 
 | Export | Description |
 |--------|-------------|
@@ -379,13 +379,13 @@ const result = await createInvoiceAction.execute(input, ctx, db, perms, { dryRun
 | `createReviewRouteHandler` | Route for `POST /actors/:actorId/review` |
 | `createConfirmationRouteHandler` | Route for irreversible confirmations |
 | `createRollbackRouteHandler` | Route for rollback execution |
-| `createEventsRouteHandler` | `GET /tera/events` |
-| `createEventChainRouteHandler` | `GET /tera/events/:id/chain` |
-| `createContainedActorsRouteHandler` | `GET /tera/actors/contained` |
-| `createPendingApprovalsRouteHandler` | `GET /tera/approvals/pending` |
-| `createEventStreamRouteHandler` | `GET /tera/events/stream` (SSE) |
+| `createEventsRouteHandler` | `GET /cortera/events` |
+| `createEventChainRouteHandler` | `GET /cortera/events/:id/chain` |
+| `createContainedActorsRouteHandler` | `GET /cortera/actors/contained` |
+| `createPendingApprovalsRouteHandler` | `GET /cortera/approvals/pending` |
+| `createEventStreamRouteHandler` | `GET /cortera/events/stream` (SSE) |
 
-### `@tera/ui`
+### `@cortera/ui`
 
 | Export | Description |
 |--------|-------------|
@@ -394,7 +394,7 @@ const result = await createInvoiceAction.execute(input, ctx, db, perms, { dryRun
 | `ActionButton` | Button that triggers an Action via API |
 | `zodToFormSchema(schema)` | Converts Zod schema to form field descriptors |
 
-### `@tera/mcp`
+### `@cortera/mcp`
 
 | Export | Description |
 |--------|-------------|
@@ -403,7 +403,7 @@ const result = await createInvoiceAction.execute(input, ctx, db, perms, { dryRun
 | `createMcpActionServer(options)` | Creates an MCP server factory |
 | `McpActionServerOptions` | `{ registry, dbClient, permissionEngine, defaultWorkspaceId }` |
 
-### `@tera/auth`
+### `@cortera/auth`
 
 | Export | Description |
 |--------|-------------|
@@ -412,38 +412,38 @@ const result = await createInvoiceAction.execute(input, ctx, db, perms, { dryRun
 | `revokeApiKey(db, keyId)` | Revokes an API key |
 | `listApiKeys(db, workspaceId)` | Lists all keys in a workspace |
 
-### `@tera/cli`
+### `@cortera/cli`
 
 | Command | Description |
 |---------|-------------|
-| `tera dev` | Development server with hot reload |
-| `tera generate` | Generate Action scaffolding |
-| `tera migrate` | Run database migrations |
-| `tera check` | Type-check all Actions |
-| `tera keys create <name>` | Create API key |
-| `tera keys list` | List API keys |
-| `tera keys revoke <keyId>` | Revoke API key |
+| `cortera dev` | Development server with hot reload |
+| `cortera generate` | Generate Action scaffolding |
+| `cortera migrate` | Run database migrations |
+| `cortera check` | Type-check all Actions |
+| `cortera keys create <name>` | Create API key |
+| `cortera keys list` | List API keys |
+| `cortera keys revoke <keyId>` | Revoke API key |
 
 ---
 
 ## Building Your Own Dashboard
 
-Tera does not ship a prebuilt admin dashboard. Instead, it exposes clean, headless, queryable/streamable APIs.
+Cortera Framework does not ship a prebuilt admin dashboard. Instead, it exposes clean, headless, queryable/streamable APIs.
 
 ### REST Query Endpoints
 
 | Endpoint | Description |
 |----------|-------------|
-| `GET /api/tera/events` | Paginated action events with filters |
-| `GET /api/tera/events/:id/chain` | Full ancestor/descendant event tree |
-| `GET /api/tera/actors/contained` | Currently contained/revoked actors |
-| `GET /api/tera/approvals/pending` | Pending approvals with full context |
+| `GET /api/cortera/events` | Paginated action events with filters |
+| `GET /api/cortera/events/:id/chain` | Full ancestor/descendant event tree |
+| `GET /api/cortera/actors/contained` | Currently contained/revoked actors |
+| `GET /api/cortera/approvals/pending` | Pending approvals with full context |
 
 ### SSE Live Stream
 
 | Endpoint | Description |
 |----------|-------------|
-| `GET /api/tera/events/stream` | Server-Sent Events stream of new action_events |
+| `GET /api/cortera/events/stream` | Server-Sent Events stream of new action_events |
 
 ### Action Endpoints
 
@@ -462,14 +462,14 @@ See [`docs/building-a-dashboard.md`](docs/building-a-dashboard.md) for complete 
 
 ```bash
 DATABASE_URL="postgresql://user:pass@host:5432/db"  # Required
-TERA_WORKSPACE_ID="default-workspace"               # Optional, defaults to "default-workspace"
+CORTERA_WORKSPACE_ID="default-workspace"               # Optional, defaults to "default-workspace"
 ```
 
 ### Running Migrations in Production
 
 ```bash
 # On deploy
-npx tera migrate --connection "$DATABASE_URL"
+npx cortera migrate --connection "$DATABASE_URL"
 ```
 
 The migration system is idempotent — safe to run multiple times.
@@ -510,13 +510,13 @@ const actionHandler = createActionHandler({
 
 ```bash
 # Create key for an agent
-npx tera keys create "Production Agent" --workspace prod-ws
+npx cortera keys create "Production Agent" --workspace prod-ws
 
 # List keys
-npx tera keys list --workspace prod-ws
+npx cortera keys list --workspace prod-ws
 
 # Revoke compromised key
-npx tera keys revoke key_abc123 --workspace prod-ws
+npx cortera keys revoke key_abc123 --workspace prod-ws
 ```
 
 ---

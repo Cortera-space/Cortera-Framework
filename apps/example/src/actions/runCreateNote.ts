@@ -8,7 +8,7 @@ const ctx = {
 async function main() {
   try {
     const result = await createNoteAction.execute(
-      { title: "Hello Tera", content: "First note" },
+      { title: "Hello Cortera Framework", content: "First note" },
       ctx
     );
     console.log("Action executed successfully:", result);

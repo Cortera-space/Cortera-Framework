@@ -1,10 +1,10 @@
 {
-  "name": "@tera/cli",
+  "name": "@cortera/cli",
   "version": "0.1.0",
-  "description": "Tera command-line interface - generate actions, run migrations, check pre-deploy safety, manage API keys",
+  "description": "Cortera Framework command-line interface - generate actions, run migrations, check pre-deploy safety, manage API keys",
   "repository": {
     "type": "git",
-    "url": "https://github.com/tera-framework/tera.git",
+    "url": "https://github.com/cortera-framework/tera.git",
     "directory": "packages/cli"
   },
   "license": "MIT",
@@ -25,9 +25,9 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@tera/auth": "workspace:*",
-    "@tera/core": "workspace:*",
-    "@tera/db": "workspace:*",
+    "@cortera/auth": "workspace:*",
+    "@cortera/core": "workspace:*",
+    "@cortera/db": "workspace:*",
     "chalk": "^5.3.0",
     "commander": "^12.0.0",
     "execa": "^9.0.0",

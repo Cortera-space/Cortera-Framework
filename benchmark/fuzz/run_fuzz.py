@@ -1,7 +1,7 @@
 """
 Part 2: Property-Based Fuzz Testing
 
-Tests the core Tera invariant statistically across thousands of generated cases:
+Tests the core Cortera Framework invariant statistically across thousands of generated cases:
 ANY call where:
   - causal root of the call's justification is "untrusted_external"
   AND

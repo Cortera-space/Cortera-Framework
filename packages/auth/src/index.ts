@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "crypto";
-import type { DbClient } from "@tera/core";
+import type { DbClient } from "@cortera/core";
 
 export interface ApiKey {
   id: string;
@@ -27,7 +27,7 @@ function hashKey(key: string): string {
 }
 
 function generateApiKey(): string {
-  const prefix = "tera_";
+  const prefix = "cortera_";
   const randomPart = randomBytes(32).toString("base64url");
   return `${prefix}${randomPart}`;
 }

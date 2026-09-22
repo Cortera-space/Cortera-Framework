@@ -4,7 +4,7 @@ import {
   InMemoryDbClient,
   type ActionContext,
   type DefinedAction,
-} from "@tera/core";
+} from "@cortera/core";
 
 const ctx: ActionContext = {
   actor: { actorType: "agent" as const, actorId: "demo-agent" },

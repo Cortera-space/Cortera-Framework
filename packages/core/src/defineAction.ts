@@ -279,7 +279,7 @@ async function executeImmediate(
     const untrustedSourceInfo = await getUntrustedSourceInfo(dbClient, inputProvenance);
 
     // Use the same confirmation flow as irreversible actions, but with trigger_reason 'untrusted_provenance'
-    const contactResolver = (globalThis as any).__TERA_CONTACT_RESOLVER__;
+const contactResolver = (globalThis as any).__CORTERA_CONTACT_RESOLVER__;
     if (!contactResolver) {
       throw new Error("Workspace contact resolver not configured for taint enforcement");
     }
@@ -641,7 +641,7 @@ async function executeIrreversible(
   };
   const { id: actionEventId } = await recordEvent(dbClient, insertEvent);
 
-  const contactResolver = (globalThis as any).__TERA_CONTACT_RESOLVER__;
+  const contactResolver = (globalThis as any).__CORTERA_CONTACT_RESOLVER__;
   if (!contactResolver) {
     throw new Error("Workspace contact resolver not configured for irreversible actions");
   }

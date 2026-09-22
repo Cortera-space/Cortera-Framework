@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { defineAction } from "@tera/core";
+import { defineAction } from "@cortera/core";
 
 export const notifyWatchersAction = defineAction({
   name: "notifyWatchers",

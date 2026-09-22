@@ -29,8 +29,8 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@tera/core": "workspace:*",
-    "@tera/db": "workspace:*"
+    "@cortera/core": "workspace:*",
+    "@cortera/db": "workspace:*"
   },
   "devDependencies": {
     "tsup": "^8.0.0",

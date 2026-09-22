@@ -1,8 +1,8 @@
 {
-  "name": "tera-monorepo",
+  "name": "cortera-monorepo",
   "version": "0.0.0",
   "private": true,
-  "description": "Tera - The web framework for the agent era",
+  "description": "Cortera Framework - The web framework for the agent era",
   "scripts": {
     "build": "pnpm -r --stream build",
     "dev": "pnpm -r --stream dev",

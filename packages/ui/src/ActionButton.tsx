@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useCallback } from "react";
-import type { DefinedAction } from "@tera/core";
+import type { DefinedAction } from "@cortera/core";
 
 export interface ActionButtonProps<T = unknown> {
   action: DefinedAction<any>;
@@ -34,7 +34,7 @@ export function ActionButton<T = unknown>({
     setMessage(null);
 
     if (actorId && actorType) {
-      document.cookie = `tera-session=${encodeURIComponent(JSON.stringify({ actorId, actorType }))}; path=/`;
+      document.cookie = `cortera-session=${encodeURIComponent(JSON.stringify({ actorId, actorType }))}; path=/`;
     }
 
     try {

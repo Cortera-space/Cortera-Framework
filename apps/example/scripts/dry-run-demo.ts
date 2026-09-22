@@ -1,6 +1,6 @@
 #!/usr/bin/env tsx
 import { registry, dbClient, defaultWorkspaceId } from "../src/lib/registry";
-import { withParent } from "@tera/core";
+import { withParent } from "@cortera/core";
 
 console.log("=".repeat(60));
 console.log("DRY-RUN DEMONSTRATION");

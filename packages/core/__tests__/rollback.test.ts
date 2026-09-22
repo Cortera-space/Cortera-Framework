@@ -10,7 +10,7 @@ import {
   type Actor,
   type DefinedAction,
   ActionRollbackError,
-} from "@tera/core";
+} from "@cortera/core";
 
 const makeCtx = (overrides?: Partial<ActionContext>): ActionContext => ({
   actor: { actorType: "human" as const, actorId: "user-1" },

@@ -28,8 +28,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@tera/core": "workspace:*",
-    "@tera/db": "workspace:*",
+    "@cortera/core": "workspace:*",
+    "@cortera/db": "workspace:*",
     "fastify": "^4.24.0",
     "zod": "^3.22.0"
   },

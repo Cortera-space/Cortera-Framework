@@ -28,8 +28,8 @@
   },
   "dependencies": {
     "@modelcontextprotocol/server": "^2.0.0",
-    "@tera/auth": "workspace:*",
-    "@tera/core": "workspace:*",
+    "@cortera/auth": "workspace:*",
+    "@cortera/core": "workspace:*",
     "zod": "^3.22.0",
     "zod-to-json-schema": "^3.21.4"
   },

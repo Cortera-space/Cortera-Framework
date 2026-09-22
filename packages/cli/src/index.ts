@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { Command } from "commander";
-import { PostgresDbClient } from "@tera/db";
-import { createApiKey, revokeApiKey, listApiKeys } from "@tera/auth";
+import { PostgresDbClient } from "@cortera/db";
+import { createApiKey, revokeApiKey, listApiKeys } from "@cortera/auth";
 import { devCommand } from "./commands/dev.js";
 import { generateCommand } from "./commands/generate.js";
 import { migrateCommand } from "./commands/migrate.js";
@@ -11,8 +11,8 @@ import { version } from "../package.json";
 const program = new Command();
 
 program
-  .name("tera")
-  .description("Tera CLI - Build, run, and inspect Tera projects")
+  .name("cortera")
+  .description("Cortera Framework CLI - Build, run, and inspect Cortera Framework projects")
   .version(version)
   .addCommand(devCommand)
   .addCommand(generateCommand)

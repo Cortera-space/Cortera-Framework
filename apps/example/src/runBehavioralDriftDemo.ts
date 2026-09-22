@@ -6,7 +6,7 @@ import {
   getActorState,
   DEFAULT_BEHAVIORAL_DRIFT_CONFIG,
   type ActionContext,
-} from "@tera/core";
+} from "@cortera/core";
 
 const db = new InMemoryDbClient();
 const workspaceId = "ws-1";

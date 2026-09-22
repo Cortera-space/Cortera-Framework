@@ -6,7 +6,7 @@ import {
   resolveActorFromRequest,
   defaultWorkspaceId,
 } from "@/lib/registry";
-import { createActionHandler } from "@tera/adapter-next";
+import { createActionHandler } from "@cortera/adapter-next";
 
 const actionHandler = createActionHandler({
   registry,

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { defineAction, InMemoryPermissionEngine, expirePendingApprovals, type ActionContext, type InsertActionEvent, type InsertActionApproval, type ListEventsOptions, type PaginatedResult, type ActionEvent, type ActionEventWithChain, type ContainedActor, type PendingApprovalWithEvent, type ListPendingApprovalsOptions } from "@tera/core";
+import { defineAction, InMemoryPermissionEngine, expirePendingApprovals, type ActionContext, type InsertActionEvent, type InsertActionApproval, type ListEventsOptions, type PaginatedResult, type ActionEvent, type ActionEventWithChain, type ContainedActor, type PendingApprovalWithEvent, type ListPendingApprovalsOptions } from "@cortera/core";
 
 const makeCtx = (overrides?: Partial<ActionContext>): ActionContext => ({
   actor: { actorType: "human" as const, actorId: "demo-user" },

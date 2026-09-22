@@ -1,6 +1,6 @@
 # Quickstart
 
-Get Tera running in your Next.js app in under 10 minutes.
+Get Cortera Framework running in your Next.js app in under 10 minutes.
 
 ## Prerequisites
 
@@ -13,7 +13,7 @@ Get Tera running in your Next.js app in under 10 minutes.
 ## 1. Install Packages
 
 ```bash
-pnpm add @tera/core @tera/db @tera/adapter-next @tera/ui @tera/mcp @tera/auth
+pnpm add @cortera/core @cortera/db @cortera/adapter-next @cortera/ui @cortera/mcp @cortera/auth
 ```
 
 ---
@@ -23,7 +23,7 @@ pnpm add @tera/core @tera/db @tera/adapter-next @tera/ui @tera/mcp @tera/auth
 Create `.env.local`:
 
 ```bash
-DATABASE_URL="postgresql://user:pass@localhost:5432/tera"
+DATABASE_URL="postgresql://user:pass@localhost:5432/cortera"
 ```
 
 ---
@@ -31,7 +31,7 @@ DATABASE_URL="postgresql://user:pass@localhost:5432/tera"
 ## 3. Run Migrations
 
 ```bash
-npx tera migrate
+npx cortera migrate
 ```
 
 This creates 6 tables:
@@ -50,7 +50,7 @@ Create `src/actions/createInvoice.ts`:
 
 ```ts
 import { z } from "zod";
-import { defineAction } from "@tera/core";
+import { defineAction } from "@cortera/core";
 
 export const createInvoiceAction = defineAction({
   name: "createInvoice",
@@ -76,8 +76,8 @@ export const createInvoiceAction = defineAction({
 Create `src/lib/registry.ts`:
 
 ```ts
-import { ActionRegistry, InMemoryPermissionEngine } from "@tera/core";
-import { PostgresDbClient } from "@tera/db";
+import { ActionRegistry, InMemoryPermissionEngine } from "@cortera/core";
+import { PostgresDbClient } from "@cortera/db";
 import { createInvoiceAction } from "@/actions/createInvoice";
 
 export const registry = new ActionRegistry();
@@ -101,7 +101,7 @@ Create `src/app/api/actions/[actionName]/route.ts`:
 ```ts
 import { NextRequest, NextResponse } from "next/server";
 import { registry, dbClient, permissionEngine, defaultWorkspaceId } from "@/lib/registry";
-import { createActionHandler, resolveActorFromRequest } from "@tera/adapter-next";
+import { createActionHandler, resolveActorFromRequest } from "@cortera/adapter-next";
 
 const actionHandler = createActionHandler({
   registry,
@@ -137,7 +137,7 @@ npm run dev
 ```bash
 curl -X POST http://localhost:3000/api/actions/createInvoice \
   -H "Content-Type: application/json" \
-  -H "x-tera-api-key: tera_abc123..." \
+  -H "x-cortera-api-key: cortera_abc123..." \
   -d '{"customerId": "cust-1", "amount": 99.99, "dueDate": "2024-12-31T23:59:59Z"}'
 ```
 
@@ -146,7 +146,7 @@ curl -X POST http://localhost:3000/api/actions/createInvoice \
 Create `src/app/invoice/page.tsx`:
 
 ```tsx
-import { ActionForm } from "@tera/ui";
+import { ActionForm } from "@cortera/ui";
 import { createInvoiceAction } from "@/actions/createInvoice";
 
 export default function InvoicePage() {
@@ -164,7 +164,7 @@ Create `src/app/api/mcp/route.ts`:
 
 ```ts
 import { createMcpHandler } from "@modelcontextprotocol/server";
-import { createMcpActionServer } from "@tera/mcp";
+import { createMcpActionServer } from "@cortera/mcp";
 import { registry, dbClient, permissionEngine, defaultWorkspaceId } from "@/lib/registry";
 
 const mcpServer = createMcpActionServer({ registry, dbClient, permissionEngine, defaultWorkspaceId });
@@ -178,7 +178,7 @@ Configure your MCP client (e.g., Cursor, Claude Desktop) to connect to `http://l
 ```bash
 curl -X POST "http://localhost:3000/api/actions/createInvoice?dryRun=true" \
   -H "Content-Type: application/json" \
-  -H "x-tera-api-key: tera_abc123..." \
+  -H "x-cortera-api-key: cortera_abc123..." \
   -d '{"customerId": "cust-1", "amount": 99.99, "dueDate": "2024-12-31T23:59:59Z"}'
 ```
 

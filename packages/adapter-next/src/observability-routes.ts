@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { DbClient, Actor } from "@tera/core";
+import { DbClient, Actor } from "@cortera/core";
 
 export interface ObservabilityRouteOptions {
   dbClient: DbClient;

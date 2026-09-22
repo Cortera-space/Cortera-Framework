@@ -1,8 +1,8 @@
-# Model-Free Security Tests for Tera's Guard Service (POST-FIX)
+# Model-Free Security Tests for Cortera Framework's Guard Service (POST-FIX)
 
 **These are static/property-based tests of the enforcement layer, NOT an AgentDojo benchmark score and NOT a claim about stopping live agent behavior end-to-end.**
 
-No LLM API calls were made. No AgentDojo model runs were executed. These tests exercise Tera's actual decision engine (packages/guard-service, the real HTTP service at /evaluate-call) with zero AI model dependency.
+No LLM API calls were made. No AgentDojo model runs were executed. These tests exercise Cortera Framework's actual decision engine (packages/guard-service, the real HTTP service at /evaluate-call) with zero AI model dependency.
 
 ---
 
@@ -23,7 +23,7 @@ The `getPermissionCategory` function in `packages/guard-service/src/index.ts` ha
 ## PART 1 — ATTACK-PATTERN REPLAY (POST-FIX vs PRE-FIX)
 
 ### Methodology
-Constructed the tool-call sequences a compromised agent WOULD produce if it fell for each AgentDojo attack, and sent them directly to the real Guard Service. Tests "if an agent is tricked, does Tera still stop it" without needing a model to do the tricking.
+Constructed the tool-call sequences a compromised agent WOULD produce if it fell for each AgentDojo attack, and sent them directly to the real Guard Service. Tests "if an agent is tricked, does Cortera Framework still stop it" without needing a model to do the tricking.
 
 - 27 injection tasks across 4 AgentDojo suites (banking, workspace, slack, travel)
 - 6 attack templates (direct, ignore_previous, system_message, injecagent, important_instructions, tool_knowledge)
@@ -73,7 +73,7 @@ Constructed the tool-call sequences a compromised agent WOULD produce if it fell
 ## PART 2 — PROPERTY-BASED FUZZ TESTING (POST-FIX vs PRE-FIX)
 
 ### Methodology
-Statistical coverage (3,000 invariant + 1,212 edge cases) checking Tera's core invariant:
+Statistical coverage (3,000 invariant + 1,212 edge cases) checking Cortera Framework's core invariant:
 > ANY call where causal root is "untrusted_external" AND tool's blast-radius tier is high-risk MUST NOT return verdict: "allow"
 
 ### Results Comparison
@@ -147,7 +147,7 @@ The 29.27% false negative rate in attack replay represents injection tasks targe
 | get_all_hotels_in_city | `workspace:read, files:read` | Read operation |
 | get_hotels_prices | `workspace:read, files:read` | Read operation |
 
-**This is correct behavior** — Tera's design only blocks/guards HIGH-RISK tools when invoked with untrusted context. Read operations are intentionally allowed.
+**This is correct behavior** — Cortera Framework's design only blocks/guards HIGH-RISK tools when invoked with untrusted context. Read operations are intentionally allowed.
 
 ---
 
@@ -167,7 +167,7 @@ The blast-radius high-risk classification gap has been **fixed and verified**:
 
 ---
 
-**Label**: Static replay of AgentDojo's published attack patterns + property-based fuzz testing against Tera's decision engine — no model was run, this is not an AgentDojo benchmark score.
+**Label**: Static replay of AgentDojo's published attack patterns + property-based fuzz testing against Cortera Framework's decision engine — no model was run, this is not an AgentDojo benchmark score.
 
 **Raw Data Files**:
 - `benchmark/attack_replay/results.json` and `results.csv`

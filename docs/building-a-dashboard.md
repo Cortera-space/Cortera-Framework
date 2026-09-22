@@ -1,13 +1,13 @@
-# Building a Dashboard with Tera's Observability API
+# Building a Dashboard with Cortera Framework's Observability API
 
-Tera does not ship a prebuilt admin dashboard. Instead, it exposes clean, headless, queryable/streamable APIs that you can build your own dashboard against. This document shows example calls against every endpoint.
+Cortera Framework does not ship a prebuilt admin dashboard. Instead, it exposes clean, headless, queryable/streamable APIs that you can build your own dashboard against. This document shows example calls against every endpoint.
 
 ## Authentication
 
 All endpoints use the same authentication as action endpoints:
 
-- **API Key**: `x-tera-api-key` header
-- **Session Cookie**: `tera-session` cookie with `{ actorId, actorType }`
+- **API Key**: `x-cortera-api-key` header
+- **Session Cookie**: `cortera-session` cookie with `{ actorId, actorType }`
 
 ## Base URL
 
@@ -17,7 +17,7 @@ All examples assume your Next.js app runs at `http://localhost:3000`. Adjust for
 
 ## 1. List Events
 
-**GET** `/api/tera/events`
+**GET** `/api/cortera/events`
 
 Paginated, most recent first. Supports filtering.
 
@@ -38,16 +38,16 @@ Paginated, most recent first. Supports filtering.
 
 ```bash
 # List recent events
-curl -G "http://localhost:3000/api/tera/events" \
-  -H "x-tera-api-key: sk-agent-123" \
+curl -G "http://localhost:3000/api/cortera/events" \
+  -H "x-cortera-api-key: sk-agent-123" \
   -d workspaceId=default-workspace \
   -d limit=20
 ```
 
 ```bash
 # Filter by actor type and action
-curl -G "http://localhost:3000/api/tera/events" \
-  -H "x-tera-api-key: sk-agent-123" \
+curl -G "http://localhost:3000/api/cortera/events" \
+  -H "x-cortera-api-key: sk-agent-123" \
   -d workspaceId=default-workspace \
   -d actorType=agent \
   -d actionName=createNote \
@@ -84,8 +84,8 @@ curl -G "http://localhost:3000/api/tera/events" \
 Use `nextCursor` as the `cursor` parameter for the next page:
 
 ```bash
-curl -G "http://localhost:3000/api/tera/events" \
-  -H "x-tera-api-key: sk-agent-123" \
+curl -G "http://localhost:3000/api/cortera/events" \
+  -H "x-cortera-api-key: sk-agent-123" \
   -d workspaceId=default-workspace \
   -d cursor=2024-01-15T10:25:00.000Z
 ```
@@ -94,15 +94,15 @@ curl -G "http://localhost:3000/api/tera/events" \
 
 ## 2. Get Event Chain
 
-**GET** `/api/tera/events/:eventId/chain`
+**GET** `/api/cortera/events/:eventId/chain`
 
 Returns the full ancestor/descendant tree for an event, assembled as a nested structure.
 
 ### Example
 
 ```bash
-curl "http://localhost:3000/api/tera/events/event-123.../chain" \
-  -H "x-tera-api-key: sk-agent-123"
+curl "http://localhost:3000/api/cortera/events/event-123.../chain" \
+  -H "x-cortera-api-key: sk-agent-123"
 ```
 
 ### Response
@@ -147,7 +147,7 @@ curl "http://localhost:3000/api/tera/events/event-123.../chain" \
 
 ## 3. List Contained Actors
 
-**GET** `/api/tera/actors/contained`
+**GET** `/api/cortera/actors/contained`
 
 Returns actors currently in `contained` or `revoked` state for a workspace.
 
@@ -160,8 +160,8 @@ Returns actors currently in `contained` or `revoked` state for a workspace.
 ### Example
 
 ```bash
-curl -G "http://localhost:3000/api/tera/actors/contained" \
-  -H "x-tera-api-key: sk-agent-123" \
+curl -G "http://localhost:3000/api/cortera/actors/contained" \
+  -H "x-cortera-api-key: sk-agent-123" \
   -d workspaceId=default-workspace
 ```
 
@@ -187,7 +187,7 @@ curl -G "http://localhost:3000/api/tera/actors/contained" \
 
 ## 4. List Pending Approvals
 
-**GET** `/api/tera/approvals/pending`
+**GET** `/api/cortera/approvals/pending`
 
 Returns pending approvals joined with their originating action events.
 
@@ -201,8 +201,8 @@ Returns pending approvals joined with their originating action events.
 ### Example
 
 ```bash
-curl -G "http://localhost:3000/api/tera/approvals/pending" \
-  -H "x-tera-api-key: sk-agent-123" \
+curl -G "http://localhost:3000/api/cortera/approvals/pending" \
+  -H "x-cortera-api-key: sk-agent-123" \
   -d workspaceId=default-workspace
 ```
 
@@ -243,7 +243,7 @@ curl -G "http://localhost:3000/api/tera/approvals/pending" \
 
 ## 5. Live Event Stream (SSE)
 
-**GET** `/api/tera/events/stream`
+**GET** `/api/cortera/events/stream`
 
 Server-Sent Events stream pushing new `action_events` rows as they're inserted, using Postgres `LISTEN/NOTIFY`.
 
@@ -258,8 +258,8 @@ Server-Sent Events stream pushing new `action_events` rows as they're inserted, 
 ### Example (curl)
 
 ```bash
-curl -N "http://localhost:3000/api/tera/events/stream" \
-  -H "x-tera-api-key: sk-agent-123" \
+curl -N "http://localhost:3000/api/cortera/events/stream" \
+  -H "x-cortera-api-key: sk-agent-123" \
   -G \
   -d workspaceId=default-workspace \
   -d actorType=agent
@@ -269,10 +269,10 @@ curl -N "http://localhost:3000/api/tera/events/stream" \
 
 ```javascript
 const eventSource = new EventSource(
-  "http://localhost:3000/api/tera/events/stream?workspaceId=default-workspace&actorType=agent",
+  "http://localhost:3000/api/cortera/events/stream?workspaceId=default-workspace&actorType=agent",
   {
     headers: {
-      "x-tera-api-key": "sk-agent-123",
+      "x-cortera-api-key": "sk-agent-123",
     },
   }
 );
@@ -327,13 +327,13 @@ Approve or reject a pending approval.
 # Approve
 curl -X POST "http://localhost:3000/api/actions/approvals/approval-789..." \
   -H "Content-Type: application/json" \
-  -H "x-tera-api-key: sk-agent-123" \
+  -H "x-cortera-api-key: sk-agent-123" \
   -d '{"decision": "approved"}'
 
 # Reject
 curl -X POST "http://localhost:3000/api/actions/approvals/approval-789..." \
   -H "Content-Type: application/json" \
-  -H "x-tera-api-key: sk-agent-123" \
+  -H "x-cortera-api-key: sk-agent-123" \
   -d '{"decision": "rejected"}'
 ```
 
@@ -369,13 +369,13 @@ Lift or revoke a contained actor.
 # Lift containment
 curl -X POST "http://localhost:3000/api/actors/agent-1/review?workspaceId=default-workspace" \
   -H "Content-Type: application/json" \
-  -H "x-tera-api-key: sk-agent-123" \
+  -H "x-cortera-api-key: sk-agent-123" \
   -d '{"decision": "lift"}'
 
 # Revoke (permanent)
 curl -X POST "http://localhost:3000/api/actors/agent-1/review?workspaceId=default-workspace" \
   -H "Content-Type: application/json" \
-  -H "x-tera-api-key: sk-agent-123" \
+  -H "x-cortera-api-key: sk-agent-123" \
   -d '{"decision": "revoke"}'
 ```
 
@@ -400,8 +400,8 @@ API_KEY="sk-agent-123"
 WS="default-workspace"
 
 echo "=== 1. List Recent Events ==="
-EVENTS=$(curl -s -G "$BASE/api/tera/events" \
-  -H "x-tera-api-key: $API_KEY" \
+EVENTS=$(curl -s -G "$BASE/api/cortera/events" \
+  -H "x-cortera-api-key: $API_KEY" \
   -d workspaceId=$WS \
   -d limit=5)
 echo "$EVENTS" | jq .
@@ -411,25 +411,25 @@ FIRST_EVENT_ID=$(echo "$EVENTS" | jq -r '.items[0].eventId // empty')
 
 echo -e "\n=== 2. Get Event Chain for $FIRST_EVENT_ID ==="
 if [ -n "$FIRST_EVENT_ID" ]; then
-  curl -s "$BASE/api/tera/events/$FIRST_EVENT_ID/chain" \
-    -H "x-tera-api-key: $API_KEY" | jq .
+  curl -s "$BASE/api/cortera/events/$FIRST_EVENT_ID/chain" \
+    -H "x-cortera-api-key: $API_KEY" | jq .
 else
   echo "No events found"
 fi
 
 echo -e "\n=== 3. List Contained Actors ==="
-curl -s -G "$BASE/api/tera/actors/contained" \
-  -H "x-tera-api-key: $API_KEY" \
+curl -s -G "$BASE/api/cortera/actors/contained" \
+  -H "x-cortera-api-key: $API_KEY" \
   -d workspaceId=$WS | jq .
 
 echo -e "\n=== 4. List Pending Approvals ==="
-curl -s -G "$BASE/api/tera/approvals/pending" \
-  -H "x-tera-api-key: $API_KEY" \
+curl -s -G "$BASE/api/cortera/approvals/pending" \
+  -H "x-cortera-api-key: $API_KEY" \
   -d workspaceId=$WS | jq .
 
 echo -e "\n=== 5. Live Stream (5 seconds) ==="
-timeout 5 curl -N -s -G "$BASE/api/tera/events/stream" \
-  -H "x-tera-api-key: $API_KEY" \
+timeout 5 curl -N -s -G "$BASE/api/cortera/events/stream" \
+  -H "x-cortera-api-key: $API_KEY" \
   -d workspaceId=$WS \
   -d actorType=agent || true
 

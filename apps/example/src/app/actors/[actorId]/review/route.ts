@@ -3,7 +3,7 @@ import {
   dbClient,
   resolveActorFromRequest,
 } from "@/lib/registry";
-import { createReviewRouteHandler } from "@tera/adapter-next";
+import { createReviewRouteHandler } from "@cortera/adapter-next";
 
 const reviewHandler = createReviewRouteHandler({
   dbClient,

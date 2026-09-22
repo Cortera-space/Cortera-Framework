@@ -14,7 +14,7 @@ import {
   type ContainedActor,
   type PendingApprovalWithEvent,
   type ListPendingApprovalsOptions,
-} from "@tera/core";
+} from "@cortera/core";
 
 const makeCtx = (overrides?: Partial<ActionContext>): ActionContext => ({
   actor: { actorType: "human" as const, actorId: "demo-user" },

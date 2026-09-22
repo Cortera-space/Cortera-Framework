@@ -16,7 +16,7 @@ function makeRequest(url: string, init?: RequestInit & { headers?: Record<string
   });
 }
 
-describe("GET /api/tera/events", () => {
+describe("GET /api/cortera/events", () => {
   beforeEach(() => {
     dbClient.events = [];
     dbClient.actorStates.clear();
@@ -29,7 +29,7 @@ describe("GET /api/tera/events", () => {
       makeRequest("http://localhost/app/actions/createNote", {
         method: "POST",
         body: { title: "Note 1", content: "Content 1" },
-        headers: { "x-tera-api-key": "sk-agent-123" },
+        headers: { "x-cortera-api-key": "sk-agent-123" },
       }),
       { params: { actionName: "createNote" } }
     );
@@ -37,14 +37,14 @@ describe("GET /api/tera/events", () => {
       makeRequest("http://localhost/app/actions/createNote", {
         method: "POST",
         body: { title: "Note 2", content: "Content 2" },
-        headers: { "x-tera-api-key": "sk-agent-123" },
+        headers: { "x-cortera-api-key": "sk-agent-123" },
       }),
       { params: { actionName: "createNote" } }
     );
 
-    const { GET } = await import("@/app/api/tera/events/route");
-    const request = makeRequest("http://localhost/api/tera/events?workspaceId=default-workspace&limit=10", {
-      headers: { "x-tera-api-key": "sk-agent-123" },
+    const { GET } = await import("@/app/api/cortera/events/route");
+    const request = makeRequest("http://localhost/api/cortera/events?workspaceId=default-workspace&limit=10", {
+      headers: { "x-cortera-api-key": "sk-agent-123" },
     });
 
     const response = await GET(request);
@@ -62,7 +62,7 @@ describe("GET /api/tera/events", () => {
       makeRequest("http://localhost/app/actions/createNote", {
         method: "POST",
         body: { title: "Agent Note", content: "Content" },
-        headers: { "x-tera-api-key": "sk-agent-123" },
+        headers: { "x-cortera-api-key": "sk-agent-123" },
       }),
       { params: { actionName: "createNote" } }
     );
@@ -71,16 +71,16 @@ describe("GET /api/tera/events", () => {
         method: "POST",
         body: { title: "Human Note", content: "Content" },
         headers: {
-          cookie: "tera-session=" + encodeURIComponent(JSON.stringify({ actorId: "user-1", actorType: "human" })),
+          cookie: "cortera-session=" + encodeURIComponent(JSON.stringify({ actorId: "user-1", actorType: "human" })),
         },
       }),
       { params: { actionName: "createNote" } }
     );
 
-    const { GET } = await import("@/app/api/tera/events/route");
+    const { GET } = await import("@/app/api/cortera/events/route");
     const request = makeRequest(
-      "http://localhost/api/tera/events?workspaceId=default-workspace&actorType=agent",
-      { headers: { "x-tera-api-key": "sk-agent-123" } }
+      "http://localhost/api/cortera/events?workspaceId=default-workspace&actorType=agent",
+      { headers: { "x-cortera-api-key": "sk-agent-123" } }
     );
 
     const response = await GET(request);
@@ -97,7 +97,7 @@ describe("GET /api/tera/events", () => {
       makeRequest("http://localhost/app/actions/createNote", {
         method: "POST",
         body: { title: "Note", content: "Content" },
-        headers: { "x-tera-api-key": "sk-agent-123" },
+        headers: { "x-cortera-api-key": "sk-agent-123" },
       }),
       { params: { actionName: "createNote" } }
     );
@@ -105,15 +105,15 @@ describe("GET /api/tera/events", () => {
       makeRequest("http://localhost/app/actions/notifyWatchers", {
         method: "POST",
         body: { noteId: "1", title: "Test" },
-        headers: { "x-tera-api-key": "sk-agent-123" },
+        headers: { "x-cortera-api-key": "sk-agent-123" },
       }),
       { params: { actionName: "notifyWatchers" } }
     );
 
-    const { GET } = await import("@/app/api/tera/events/route");
+    const { GET } = await import("@/app/api/cortera/events/route");
     const request = makeRequest(
-      "http://localhost/api/tera/events?workspaceId=default-workspace&actionName=createNote",
-      { headers: { "x-tera-api-key": "sk-agent-123" } }
+      "http://localhost/api/cortera/events?workspaceId=default-workspace&actionName=createNote",
+      { headers: { "x-cortera-api-key": "sk-agent-123" } }
     );
 
     const response = await GET(request);
@@ -130,7 +130,7 @@ describe("GET /api/tera/events", () => {
       makeRequest("http://localhost/app/actions/createNote", {
         method: "POST",
         body: { title: "Note", content: "Content" },
-        headers: { "x-tera-api-key": "sk-agent-123" },
+        headers: { "x-cortera-api-key": "sk-agent-123" },
       }),
       { params: { actionName: "createNote" } }
     );
@@ -139,16 +139,16 @@ describe("GET /api/tera/events", () => {
         method: "POST",
         body: { noteId: "1", title: "Test" },
         headers: {
-          cookie: "tera-session=" + encodeURIComponent(JSON.stringify({ actorId: "user-1", actorType: "human" })),
+          cookie: "cortera-session=" + encodeURIComponent(JSON.stringify({ actorId: "user-1", actorType: "human" })),
         },
       }),
       { params: { actionName: "notifyWatchers" } }
     );
 
-    const { GET } = await import("@/app/api/tera/events/route");
+    const { GET } = await import("@/app/api/cortera/events/route");
     const request = makeRequest(
-      "http://localhost/api/tera/events?workspaceId=default-workspace&permissionResult=deny",
-      { headers: { "x-tera-api-key": "sk-agent-123" } }
+      "http://localhost/api/cortera/events?workspaceId=default-workspace&permissionResult=deny",
+      { headers: { "x-cortera-api-key": "sk-agent-123" } }
     );
 
     const response = await GET(request);
@@ -166,24 +166,24 @@ describe("GET /api/tera/events", () => {
         makeRequest("http://localhost/app/actions/createNote", {
           method: "POST",
           body: { title: `Note ${i}`, content: "Content" },
-          headers: { "x-tera-api-key": "sk-agent-123" },
+          headers: { "x-cortera-api-key": "sk-agent-123" },
         }),
         { params: { actionName: "createNote" } }
       );
     }
 
-    const { GET } = await import("@/app/api/tera/events/route");
+    const { GET } = await import("@/app/api/cortera/events/route");
     const first = await GET(
-      makeRequest("http://localhost/api/tera/events?workspaceId=default-workspace&limit=2", {
-        headers: { "x-tera-api-key": "sk-agent-123" },
+      makeRequest("http://localhost/api/cortera/events?workspaceId=default-workspace&limit=2", {
+        headers: { "x-cortera-api-key": "sk-agent-123" },
       })
     );
     const firstJson = await first.json();
 
     const second = await GET(
       makeRequest(
-        `http://localhost/api/tera/events?workspaceId=default-workspace&limit=2&cursor=${firstJson.nextCursor}`,
-        { headers: { "x-tera-api-key": "sk-agent-123" } }
+        `http://localhost/api/cortera/events?workspaceId=default-workspace&limit=2&cursor=${firstJson.nextCursor}`,
+        { headers: { "x-cortera-api-key": "sk-agent-123" } }
       )
     );
     const secondJson = await second.json();
@@ -194,15 +194,15 @@ describe("GET /api/tera/events", () => {
   });
 
   it("returns 401 without auth", async () => {
-    const { GET } = await import("@/app/api/tera/events/route");
-    const request = makeRequest("http://localhost/api/tera/events?workspaceId=default-workspace");
+    const { GET } = await import("@/app/api/cortera/events/route");
+    const request = makeRequest("http://localhost/api/cortera/events?workspaceId=default-workspace");
 
     const response = await GET(request);
     expect(response.status).toBe(401);
   });
 });
 
-describe("GET /api/tera/events/:eventId/chain", () => {
+describe("GET /api/cortera/events/:eventId/chain", () => {
   beforeEach(() => {
     dbClient.events = [];
     dbClient.actorStates.clear();
@@ -215,7 +215,7 @@ describe("GET /api/tera/events/:eventId/chain", () => {
     const rootReq = makeRequest("http://localhost/app/actions/restrictedNote", {
       method: "POST",
       body: { title: "Root", content: "Blast radius root" },
-      headers: { "x-tera-api-key": "sk-agent-123" },
+      headers: { "x-cortera-api-key": "sk-agent-123" },
     });
     const rootRes = await actionPost(rootReq, { params: { actionName: "restrictedNote" } });
     const rootJson = await rootRes.json();
@@ -225,16 +225,16 @@ describe("GET /api/tera/events/:eventId/chain", () => {
       method: "POST",
       body: { reason: "oops" },
       headers: {
-        "x-tera-api-key": "sk-agent-123",
-        "x-tera-parent-event-id": rootEventId,
+        "x-cortera-api-key": "sk-agent-123",
+        "x-cortera-parent-event-id": rootEventId,
       },
     });
     await actionPost(childReq, { params: { actionName: "deleteAllCustomers" } });
 
-    const { GET } = await import("@/app/api/tera/events/[eventId]/chain/route");
+    const { GET } = await import("@/app/api/cortera/events/[eventId]/chain/route");
     const request = makeRequest(
-      `http://localhost/api/tera/events/${rootEventId}/chain`,
-      { headers: { "x-tera-api-key": "sk-agent-123" } }
+      `http://localhost/api/cortera/events/${rootEventId}/chain`,
+      { headers: { "x-cortera-api-key": "sk-agent-123" } }
     );
 
     const response = await GET(request, { params: { eventId: rootEventId } });
@@ -249,10 +249,10 @@ describe("GET /api/tera/events/:eventId/chain", () => {
   });
 
   it("returns 404 for non-existent event", async () => {
-    const { GET } = await import("@/app/api/tera/events/[eventId]/chain/route");
+    const { GET } = await import("@/app/api/cortera/events/[eventId]/chain/route");
     const request = makeRequest(
-      "http://localhost/api/tera/events/non-existent/chain",
-      { headers: { "x-tera-api-key": "sk-agent-123" } }
+      "http://localhost/api/cortera/events/non-existent/chain",
+      { headers: { "x-cortera-api-key": "sk-agent-123" } }
     );
 
     const response = await GET(request, { params: { eventId: "non-existent" } });
@@ -260,15 +260,15 @@ describe("GET /api/tera/events/:eventId/chain", () => {
   });
 
   it("returns 401 without auth", async () => {
-    const { GET } = await import("@/app/api/tera/events/[eventId]/chain/route");
-    const request = makeRequest("http://localhost/api/tera/events/some-id/chain");
+    const { GET } = await import("@/app/api/cortera/events/[eventId]/chain/route");
+    const request = makeRequest("http://localhost/api/cortera/events/some-id/chain");
 
     const response = await GET(request, { params: { eventId: "some-id" } });
     expect(response.status).toBe(401);
   });
 });
 
-describe("GET /api/tera/actors/contained", () => {
+describe("GET /api/cortera/actors/contained", () => {
   beforeEach(() => {
     dbClient.events = [];
     dbClient.actorStates.clear();
@@ -280,7 +280,7 @@ describe("GET /api/tera/actors/contained", () => {
     const rootReq = makeRequest("http://localhost/app/actions/restrictedNote", {
       method: "POST",
       body: { title: "Root", content: "Blast radius root" },
-      headers: { "x-tera-api-key": "sk-agent-123" },
+      headers: { "x-cortera-api-key": "sk-agent-123" },
     });
     const rootRes = await actionPost(rootReq, { params: { actionName: "restrictedNote" } });
     const rootJson = await rootRes.json();
@@ -290,16 +290,16 @@ describe("GET /api/tera/actors/contained", () => {
       method: "POST",
       body: { reason: "oops" },
       headers: {
-        "x-tera-api-key": "sk-agent-123",
-        "x-tera-parent-event-id": rootEventId,
+        "x-cortera-api-key": "sk-agent-123",
+        "x-cortera-parent-event-id": rootEventId,
       },
     });
     await actionPost(childReq, { params: { actionName: "deleteAllCustomers" } });
 
-    const { GET } = await import("@/app/api/tera/actors/contained/route");
+    const { GET } = await import("@/app/api/cortera/actors/contained/route");
     const request = makeRequest(
-      "http://localhost/api/tera/actors/contained?workspaceId=default-workspace",
-      { headers: { "x-tera-api-key": "sk-agent-123" } }
+      "http://localhost/api/cortera/actors/contained?workspaceId=default-workspace",
+      { headers: { "x-cortera-api-key": "sk-agent-123" } }
     );
 
     const response = await GET(request);
@@ -314,10 +314,10 @@ describe("GET /api/tera/actors/contained", () => {
   });
 
   it("returns empty when no contained actors", async () => {
-    const { GET } = await import("@/app/api/tera/actors/contained/route");
+    const { GET } = await import("@/app/api/cortera/actors/contained/route");
     const request = makeRequest(
-      "http://localhost/api/tera/actors/contained?workspaceId=default-workspace",
-      { headers: { "x-tera-api-key": "sk-agent-123" } }
+      "http://localhost/api/cortera/actors/contained?workspaceId=default-workspace",
+      { headers: { "x-cortera-api-key": "sk-agent-123" } }
     );
 
     const response = await GET(request);
@@ -328,15 +328,15 @@ describe("GET /api/tera/actors/contained", () => {
   });
 
   it("returns 401 without auth", async () => {
-    const { GET } = await import("@/app/api/tera/actors/contained/route");
-    const request = makeRequest("http://localhost/api/tera/actors/contained?workspaceId=default-workspace");
+    const { GET } = await import("@/app/api/cortera/actors/contained/route");
+    const request = makeRequest("http://localhost/api/cortera/actors/contained?workspaceId=default-workspace");
 
     const response = await GET(request);
     expect(response.status).toBe(401);
   });
 });
 
-describe("GET /api/tera/approvals/pending", () => {
+describe("GET /api/cortera/approvals/pending", () => {
   let approvalId: string;
 
   beforeEach(async () => {
@@ -349,7 +349,7 @@ describe("GET /api/tera/approvals/pending", () => {
       method: "POST",
       body: { id: "cust-1" },
       headers: {
-        cookie: "tera-session=" + encodeURIComponent(JSON.stringify({ actorId: "user-1", actorType: "human" })),
+        cookie: "cortera-session=" + encodeURIComponent(JSON.stringify({ actorId: "user-1", actorType: "human" })),
       },
     });
     const res = await actionPost(req, { params: { actionName: "deleteCustomer" } });
@@ -358,10 +358,10 @@ describe("GET /api/tera/approvals/pending", () => {
   });
 
   it("returns pending approvals with event data", async () => {
-    const { GET } = await import("@/app/api/tera/approvals/pending/route");
+    const { GET } = await import("@/app/api/cortera/approvals/pending/route");
     const request = makeRequest(
-      "http://localhost/api/tera/approvals/pending?workspaceId=default-workspace",
-      { headers: { "x-tera-api-key": "sk-agent-123" } }
+      "http://localhost/api/cortera/approvals/pending?workspaceId=default-workspace",
+      { headers: { "x-cortera-api-key": "sk-agent-123" } }
     );
 
     const response = await GET(request);
@@ -384,16 +384,16 @@ describe("GET /api/tera/approvals/pending", () => {
         method: "POST",
         body: { id: "cust-2" },
         headers: {
-          cookie: "tera-session=" + encodeURIComponent(JSON.stringify({ actorId: "user-2", actorType: "human" })),
+          cookie: "cortera-session=" + encodeURIComponent(JSON.stringify({ actorId: "user-2", actorType: "human" })),
         },
       }),
       { params: { actionName: "deleteCustomer" } }
     );
 
-    const { GET } = await import("@/app/api/tera/approvals/pending/route");
+    const { GET } = await import("@/app/api/cortera/approvals/pending/route");
     const request = makeRequest(
-      "http://localhost/api/tera/approvals/pending?workspaceId=default-workspace&actionName=deleteCustomer",
-      { headers: { "x-tera-api-key": "sk-agent-123" } }
+      "http://localhost/api/cortera/approvals/pending?workspaceId=default-workspace&actionName=deleteCustomer",
+      { headers: { "x-cortera-api-key": "sk-agent-123" } }
     );
 
     const response = await GET(request);
@@ -405,18 +405,18 @@ describe("GET /api/tera/approvals/pending", () => {
   });
 
   it("returns 401 without auth", async () => {
-    const { GET } = await import("@/app/api/tera/approvals/pending/route");
-    const request = makeRequest("http://localhost/api/tera/approvals/pending?workspaceId=default-workspace");
+    const { GET } = await import("@/app/api/cortera/approvals/pending/route");
+    const request = makeRequest("http://localhost/api/cortera/approvals/pending?workspaceId=default-workspace");
 
     const response = await GET(request);
     expect(response.status).toBe(401);
   });
 });
 
-describe("GET /api/tera/events/stream", () => {
+describe("GET /api/cortera/events/stream", () => {
   it("returns 401 without auth", async () => {
-    const { GET } = await import("@/app/api/tera/events/stream/route");
-    const request = makeRequest("http://localhost/api/tera/events/stream?workspaceId=default-workspace");
+    const { GET } = await import("@/app/api/cortera/events/stream/route");
+    const request = makeRequest("http://localhost/api/cortera/events/stream?workspaceId=default-workspace");
 
     const response = await GET(request);
     expect(response.status).toBe(401);
@@ -435,7 +435,7 @@ describe("POST /app/actions/[actionName]", () => {
     const request = makeRequest("http://localhost/app/actions/createNote", {
       method: "POST",
       body: { title: "Hello", content: "World" },
-      headers: { "x-tera-api-key": "sk-agent-123" },
+      headers: { "x-cortera-api-key": "sk-agent-123" },
     });
 
     const response = await POST(request, { params: { actionName: "createNote" } });
@@ -449,7 +449,7 @@ describe("POST /app/actions/[actionName]", () => {
     const { POST } = await import("@/app/api/actions/[actionName]/route");
     const request = makeRequest("http://localhost/app/actions/nonexistent", {
       method: "POST",
-      headers: { "x-tera-api-key": "sk-agent-123" },
+      headers: { "x-cortera-api-key": "sk-agent-123" },
     });
 
     const response = await POST(request, { params: { actionName: "nonexistent" } });
@@ -464,7 +464,7 @@ describe("POST /app/actions/[actionName]", () => {
     const request = makeRequest("http://localhost/app/actions/createNote", {
       method: "POST",
       body: { title: "", content: "" },
-      headers: { "x-tera-api-key": "sk-agent-123" },
+      headers: { "x-cortera-api-key": "sk-agent-123" },
     });
 
     const response = await POST(request, { params: { actionName: "createNote" } });
@@ -482,7 +482,7 @@ describe("POST /app/actions/[actionName]", () => {
       method: "POST",
       body: { noteId: "1", title: "Hi" },
       headers: {
-        cookie: "tera-session=" + encodeURIComponent(JSON.stringify({ actorId: "user-1", actorType: "human" })),
+        cookie: "cortera-session=" + encodeURIComponent(JSON.stringify({ actorId: "user-1", actorType: "human" })),
       },
     });
 
@@ -499,7 +499,7 @@ describe("POST /app/actions/[actionName]", () => {
       method: "POST",
       body: { id: "cust-1" },
       headers: {
-        cookie: "tera-session=" + encodeURIComponent(JSON.stringify({ actorId: "user-1", actorType: "human" })),
+        cookie: "cortera-session=" + encodeURIComponent(JSON.stringify({ actorId: "user-1", actorType: "human" })),
       },
     });
 
@@ -540,7 +540,7 @@ describe("POST /app/actions/approvals/[approvalId]", () => {
       method: "POST",
       body: { id: "cust-1" },
       headers: {
-        cookie: "tera-session=" + encodeURIComponent(JSON.stringify({ actorId: "user-1", actorType: "human" })),
+        cookie: "cortera-session=" + encodeURIComponent(JSON.stringify({ actorId: "user-1", actorType: "human" })),
       },
     });
     const res = await actionPost(req, { params: { actionName: "deleteCustomer" } });
@@ -556,7 +556,7 @@ describe("POST /app/actions/approvals/[approvalId]", () => {
         method: "POST",
         body: { decision: "approved" },
         headers: {
-          cookie: "tera-session=" + encodeURIComponent(JSON.stringify({ actorId: "reviewer-1", actorType: "human" })),
+          cookie: "cortera-session=" + encodeURIComponent(JSON.stringify({ actorId: "reviewer-1", actorType: "human" })),
         },
       }
     );
@@ -576,7 +576,7 @@ describe("POST /app/actions/approvals/[approvalId]", () => {
         method: "POST",
         body: { decision: "rejected" },
         headers: {
-          cookie: "tera-session=" + encodeURIComponent(JSON.stringify({ actorId: "reviewer-1", actorType: "human" })),
+          cookie: "cortera-session=" + encodeURIComponent(JSON.stringify({ actorId: "reviewer-1", actorType: "human" })),
         },
       }
     );
@@ -594,7 +594,7 @@ describe("POST /app/actions/approvals/[approvalId]", () => {
       method: "POST",
       body: { decision: "approved" },
       headers: {
-        cookie: "tera-session=" + encodeURIComponent(JSON.stringify({ actorId: "reviewer-1", actorType: "human" })),
+        cookie: "cortera-session=" + encodeURIComponent(JSON.stringify({ actorId: "reviewer-1", actorType: "human" })),
       },
     });
 
@@ -627,7 +627,7 @@ describe("POST /app/actors/[actorId]/review", () => {
     const req = makeRequest("http://localhost/app/actions/restrictedNote", {
       method: "POST",
       body: { title: "Root", content: "Blast radius root" },
-      headers: { "x-tera-api-key": "sk-agent-123" },
+      headers: { "x-cortera-api-key": "sk-agent-123" },
     });
     const rootRes = await actionPost(req, { params: { actionName: "restrictedNote" } });
     const rootJson = await rootRes.json();
@@ -637,8 +637,8 @@ describe("POST /app/actors/[actorId]/review", () => {
       method: "POST",
       body: { reason: "oops" },
       headers: {
-        "x-tera-api-key": "sk-agent-123",
-        "x-tera-parent-event-id": rootEventId,
+        "x-cortera-api-key": "sk-agent-123",
+        "x-cortera-parent-event-id": rootEventId,
       },
     });
     await actionPost(req2, { params: { actionName: "deleteAllCustomers" } });
@@ -654,7 +654,7 @@ describe("POST /app/actors/[actorId]/review", () => {
         method: "POST",
         body: { decision: "lift" },
         headers: {
-          cookie: "tera-session=" + encodeURIComponent(JSON.stringify({ actorId: "reviewer-1", actorType: "human" })),
+          cookie: "cortera-session=" + encodeURIComponent(JSON.stringify({ actorId: "reviewer-1", actorType: "human" })),
         },
       }
     );
@@ -674,7 +674,7 @@ describe("POST /app/actors/[actorId]/review", () => {
         method: "POST",
         body: { decision: "lift" },
         headers: {
-          cookie: "tera-session=" + encodeURIComponent(JSON.stringify({ actorId: "reviewer-1", actorType: "human" })),
+          cookie: "cortera-session=" + encodeURIComponent(JSON.stringify({ actorId: "reviewer-1", actorType: "human" })),
         },
       }
     );
@@ -690,7 +690,7 @@ describe("POST /app/actors/[actorId]/review", () => {
       method: "POST",
       body: { decision: "lift" },
       headers: {
-        cookie: "tera-session=" + encodeURIComponent(JSON.stringify({ actorId: "reviewer-1", actorType: "human" })),
+        cookie: "cortera-session=" + encodeURIComponent(JSON.stringify({ actorId: "reviewer-1", actorType: "human" })),
       },
     });
 

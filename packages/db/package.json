@@ -29,7 +29,7 @@
     "migrate:down": "node-pg-migrate down"
   },
   "dependencies": {
-    "@tera/core": "workspace:*",
+    "@cortera/core": "workspace:*",
     "pg": "^8.11.0"
   },
   "devDependencies": {

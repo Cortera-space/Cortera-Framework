@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { defineAction, type ActionContext } from "@tera/core";
+import { defineAction, type ActionContext } from "@cortera/core";
 
 export const archiveNoteAction = defineAction({
   name: "archiveNote",

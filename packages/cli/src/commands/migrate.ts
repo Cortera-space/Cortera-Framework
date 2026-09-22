@@ -19,7 +19,7 @@ export const migrateCommand = new Command("migrate")
 
     const dbPackagePath = resolve(process.cwd(), "packages/db");
     if (!existsSync(dbPackagePath)) {
-      console.error(chalk.red("Error: @tera/db package not found. Run from monorepo root."));
+      console.error(chalk.red("Error: @cortera/db package not found. Run from monorepo root."));
       process.exit(1);
     }
 

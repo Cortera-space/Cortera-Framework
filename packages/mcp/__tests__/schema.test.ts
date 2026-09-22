@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { z } from "zod";
-import { defineAction, ActionRegistry } from "@tera/core";
+import { defineAction, ActionRegistry } from "@cortera/core";
 import { generateMcpToolSchema, generateMcpToolList } from "../src/schema";
 
 describe("generateMcpToolSchema", () => {

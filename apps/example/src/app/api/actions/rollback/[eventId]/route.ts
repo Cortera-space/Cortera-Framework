@@ -4,7 +4,7 @@ import {
   registry,
   resolveActorFromRequest,
 } from "@/lib/registry";
-import { createRollbackRouteHandler } from "@tera/adapter-next";
+import { createRollbackRouteHandler } from "@cortera/adapter-next";
 
 const rollbackHandler = createRollbackRouteHandler({
   dbClient,

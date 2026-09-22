@@ -1,6 +1,6 @@
 # Migration & Deployment Guide
 
-Production-ready setup for Tera applications.
+Production-ready setup for Cortera Framework applications.
 
 ---
 
@@ -11,7 +11,7 @@ Production-ready setup for Tera applications.
 DATABASE_URL="postgresql://user:pass@host:5432/db?sslmode=require"
 
 # Optional
-TERA_WORKSPACE_ID="production"  # Defaults to "default-workspace"
+CORTERA_WORKSPACE_ID="production"  # Defaults to "default-workspace"
 ```
 
 ---
@@ -22,13 +22,13 @@ TERA_WORKSPACE_ID="production"  # Defaults to "default-workspace"
 
 ```bash
 # Local development
-npx tera migrate
+npx cortera migrate
 
 # Production (CI/CD)
-npx tera migrate --connection "$DATABASE_URL"
+npx cortera migrate --connection "$DATABASE_URL"
 ```
 
-The migration system is **idempotent** — safe to run multiple times. It tracks applied migrations in a `tera_migrations` table.
+The migration system is **idempotent** — safe to run multiple times. It tracks applied migrations in a `cortera_migrations` table.
 
 ### Migration Files
 
@@ -106,14 +106,14 @@ export async function resolveActor(req: NextRequest): Promise<Actor | null> {
 
 ```ts
 // lib/auth.ts
-import { validateApiKey } from "@tera/auth";
-import { PostgresDbClient } from "@tera/db";
+import { validateApiKey } from "@cortera/auth";
+import { PostgresDbClient } from "@cortera/db";
 
 const db = new PostgresDbClient({ connectionString: process.env.DATABASE_URL! });
 
 export async function resolveActor(req: NextRequest): Promise<Actor | null> {
   // Check API key first
-  const apiKey = req.headers.get("x-tera-api-key");
+  const apiKey = req.headers.get("x-cortera-api-key");
   if (apiKey) {
     const valid = await validateApiKey(db, apiKey);
     if (valid) {
@@ -135,7 +135,7 @@ Then use in your route handler:
 
 ```ts
 // app/api/actions/[actionName]/route.ts
-import { createActionHandler } from "@tera/adapter-next";
+import { createActionHandler } from "@cortera/adapter-next";
 import { resolveActor } from "@/lib/auth";
 
 const actionHandler = createActionHandler({
@@ -155,11 +155,11 @@ const actionHandler = createActionHandler({
 
 ```bash
 # Via CLI
-npx tera keys create "Production Agent" --workspace production
+npx cortera keys create "Production Agent" --workspace production
 
 # Via code
-import { createApiKey } from "@tera/auth";
-import { PostgresDbClient } from "@tera/db";
+import { createApiKey } from "@cortera/auth";
+import { PostgresDbClient } from "@cortera/db";
 
 const db = new PostgresDbClient({ connectionString: process.env.DATABASE_URL! });
 const { key, keyId } = await createApiKey(db, "agent-1", "production", "Production Agent");
@@ -169,22 +169,22 @@ const { key, keyId } = await createApiKey(db, "agent-1", "production", "Producti
 ### Listing Keys
 
 ```bash
-npx tera keys list --workspace production
+npx cortera keys list --workspace production
 ```
 
 ```ts
-import { listApiKeys } from "@tera/auth";
+import { listApiKeys } from "@cortera/auth";
 const keys = await listApiKeys(db, "production");
 ```
 
 ### Revoking Keys
 
 ```bash
-npx tera keys revoke key_abc123 --workspace production
+npx cortera keys revoke key_abc123 --workspace production
 ```
 
 ```ts
-import { revokeApiKey } from "@tera/auth";
+import { revokeApiKey } from "@cortera/auth";
 await revokeApiKey(db, "key_abc123");
 ```
 
@@ -229,7 +229,7 @@ const resolver: WorkspaceContactResolver = {
   },
 };
 
-(globalThis as any).__TERA_CONTACT_RESOLVER__ = resolver;
+(globalThis as any).__CORTERA_CONTACT_RESOLVER__ = resolver;
 ```
 
 ---
@@ -242,12 +242,12 @@ Run these periodically in production:
 
 ```bash
 # Every 5 minutes
-npx tera run expire-approvals
+npx cortera run expire-approvals
 ```
 
 ```ts
 // Or in your own scheduler
-import { expirePendingApprovals } from "@tera/core";
+import { expirePendingApprovals } from "@cortera/core";
 setInterval(() => expirePendingApprovals(db), 5 * 60 * 1000);
 ```
 
@@ -255,11 +255,11 @@ setInterval(() => expirePendingApprovals(db), 5 * 60 * 1000);
 
 ```bash
 # Every minute
-npx tera run process-delayed
+npx cortera run process-delayed
 ```
 
 ```ts
-import { processPendingDelayedActions } from "@tera/core";
+import { processPendingDelayedActions } from "@cortera/core";
 setInterval(() => processPendingDelayedActions(db), 60 * 1000);
 ```
 
@@ -267,11 +267,11 @@ setInterval(() => processPendingDelayedActions(db), 60 * 1000);
 
 ```bash
 # Every 5 minutes
-npx tera run expire-confirmations
+npx cortera run expire-confirmations
 ```
 
 ```ts
-import { expirePendingIrreversibleConfirmations } from "@tera/core";
+import { expirePendingIrreversibleConfirmations } from "@cortera/core";
 setInterval(() => expirePendingIrreversibleConfirmations(db), 5 * 60 * 1000);
 ```
 
@@ -280,7 +280,7 @@ setInterval(() => expirePendingIrreversibleConfirmations(db), 5 * 60 * 1000);
 ## Deployment Checklist
 
 - [ ] `DATABASE_URL` set with SSL
-- [ ] Migrations run (`npx tera migrate`)
+- [ ] Migrations run (`npx cortera migrate`)
 - [ ] Custom `resolveActor` implemented
 - [ ] Workspace contact resolver configured (for irreversible actions)
 - [ ] Background jobs scheduled (approvals, delayed actions, confirmations)

@@ -1,6 +1,6 @@
 # Core Concepts
 
-Deep dive into Tera's foundational primitives.
+Deep dive into Cortera Framework's foundational primitives.
 
 ---
 
@@ -10,7 +10,7 @@ An Action is the single source of truth for an operational capability. One defin
 
 1. **REST Endpoint** — `POST /actions/:name`
 2. **MCP Tool Schema** — Agent-callable via Model Context Protocol
-3. **UI Form** — `<ActionForm action={...} />` from `@tera/ui`
+3. **UI Form** — `<ActionForm action={...} />` from `@cortera/ui`
 4. **Trace Span** — Structured `action_events` row in Postgres
 
 ### ActionConfig
@@ -50,8 +50,8 @@ interface Actor {
 
 The adapter provides `resolveActorFromRequest` which checks (in order):
 
-1. **API Key** — `x-tera-api-key` header → lookup in `api_keys` table
-2. **Session Cookie** — `tera-session` cookie with `{ actorId, actorType }`
+1. **API Key** — `x-cortera-api-key` header → lookup in `api_keys` table
+2. **Session Cookie** — `cortera-session` cookie with `{ actorId, actorType }`
 3. **Fallback** — Returns `null` → 401 Unauthorized
 
 In production, replace with your auth integration (NextAuth, Clerk, Supabase, etc.).
@@ -215,7 +215,7 @@ await action.execute(input, ctx, db, perms, { riskMode: "autonomous" });
 
 ## Dry-Run Execution Mode
 
-Any Action call may pass `{ dryRun: true }`. In dry-run mode, Tera runs the full pre-execution pipeline **without** invoking the handler:
+Any Action call may pass `{ dryRun: true }`. In dry-run mode, Cortera Framework runs the full pre-execution pipeline **without** invoking the handler:
 
 - Actor state check (contained/revoked)
 - Blast-radius evaluation
@@ -236,7 +236,7 @@ Any Action call may pass `{ dryRun: true }`. In dry-run mode, Tera runs the full
 
 ## Out-of-Band Confirmation
 
-For `riskTier: "irreversible"` actions, Tera implements a confirmation flow that the agent's own session cannot spoof:
+For `riskTier: "irreversible"` actions, Cortera Framework implements a confirmation flow that the agent's own session cannot spoof:
 
 1. Workspace contact pre-registered via `WorkspaceContactResolver`
 2. Secure random token generated (cryptographically strong)
@@ -254,7 +254,7 @@ const resolver: WorkspaceContactResolver = {
   },
 };
 
-(globalThis as any).__TERA_CONTACT_RESOLVER__ = resolver;
+(globalThis as any).__CORTERA_CONTACT_RESOLVER__ = resolver;
 ```
 
 ---
@@ -284,7 +284,7 @@ defineAction({
 
 ## Summary: What You Get For Free
 
-| Concern | Traditional Approach | Tera |
+| Concern | Traditional Approach | Cortera Framework |
 |---------|---------------------|------|
 | Input validation | Manual Zod in route | From `inputSchema` |
 | Audit log | Manual DB write | Automatic `action_events` row |

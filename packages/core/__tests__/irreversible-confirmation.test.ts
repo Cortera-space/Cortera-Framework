@@ -14,7 +14,7 @@ import {
   type Actor,
   type WorkspaceContactResolver,
   type DefinedAction,
-} from "@tera/core";
+} from "@cortera/core";
 
 const makeCtx = (overrides?: Partial<ActionContext>): ActionContext => ({
   actor: { actorType: "human" as const, actorId: "user-1" },
@@ -57,7 +57,7 @@ describe("irreversible confirmation", () => {
     });
 
     registry.register(action);
-    (globalThis as any).__TERA_CONTACT_RESOLVER__ = mockContactResolver;
+    (globalThis as any).__CORTERA_CONTACT_RESOLVER__ = mockContactResolver;
   });
 
   it("requestIrreversibleConfirmation creates confirmation and returns awaiting_confirmation", async () => {

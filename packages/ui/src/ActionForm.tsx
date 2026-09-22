@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useCallback } from "react";
-import type { DefinedAction } from "@tera/core";
+import type { DefinedAction } from "@cortera/core";
 import type { FieldDescriptor, SelectOption } from "./types";
 import { zodToFormSchema } from "./zod-to-form-schema";
 
@@ -68,7 +68,7 @@ export function ActionForm<T = unknown>({
 
       try {
         if (actorId && actorType) {
-          document.cookie = `tera-session=${encodeURIComponent(JSON.stringify({ actorId, actorType }))}; path=/`;
+          document.cookie = `cortera-session=${encodeURIComponent(JSON.stringify({ actorId, actorType }))}; path=/`;
         }
 
         const response = await fetch(`${basePath}/${action.name}`, {

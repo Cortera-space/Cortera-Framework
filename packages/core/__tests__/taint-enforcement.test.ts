@@ -40,7 +40,7 @@ describe("Taint Enforcement (Stage 14c)", () => {
     permissionEngine.addRule({ actorType: "agent", permissionKey: "test.irreversible", result: "allow" });
 
     ctx = makeCtx();
-    (globalThis as any).__TERA_CONTACT_RESOLVER__ = mockContactResolver;
+    (globalThis as any).__CORTERA_CONTACT_RESOLVER__ = mockContactResolver;
   });
 
   const createInstantAction = (name: string, options: { sanitizes?: boolean } = {}): DefinedAction<any, any> =>

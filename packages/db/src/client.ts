@@ -25,7 +25,7 @@ import type {
   ProvenanceTrace,
   ProvenanceTraceEntry,
   ProvenanceLabel,
-} from "@tera/core";
+} from "@cortera/core";
 
 export type PostgresDbClientOptions = {
   connectionString: string;

@@ -5,7 +5,7 @@ import {
   InMemoryPermissionEngine,
   type ActionContext,
   type DefinedAction,
-} from "@tera/core";
+} from "@cortera/core";
 
 const mockContactResolver = {
   getContact: () => Promise.resolve({
@@ -49,7 +49,7 @@ async function runDemo(name: string, fn: () => Promise<void>) {
 }
 
 async function main() {
-  (globalThis as any).__TERA_CONTACT_RESOLVER__ = mockContactResolver;
+  (globalThis as any).__CORTERA_CONTACT_RESOLVER__ = mockContactResolver;
 
   const db = new InMemoryDbClient();
   const permissionEngine = new InMemoryPermissionEngine();

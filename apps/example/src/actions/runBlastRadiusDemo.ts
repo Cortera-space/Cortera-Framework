@@ -1,7 +1,7 @@
 import { restrictedNoteAction } from "./restrictedNote";
 import { createNoteAction } from "./createNote";
 import { deleteAllCustomersAction } from "./deleteAllCustomers";
-import { reviewContainedActor, type ListEventsOptions, type PaginatedResult, type ActionEvent, type ActionEventWithChain, type ContainedActor, type PendingApprovalWithEvent, type ListPendingApprovalsOptions } from "@tera/core";
+import { reviewContainedActor, type ListEventsOptions, type PaginatedResult, type ActionEvent, type ActionEventWithChain, type ContainedActor, type PendingApprovalWithEvent, type ListPendingApprovalsOptions } from "@cortera/core";
 
 const ctx = {
   actor: { actorType: "agent" as const, actorId: "demo-agent" },

@@ -1,6 +1,6 @@
 import { createNoteAction } from "./createNote";
 import { notifyWatchersAction } from "./notifyWatchers";
-import { type ListEventsOptions, type PaginatedResult, type ActionEvent, type ActionEventWithChain, type ContainedActor, type PendingApprovalWithEvent, type ListPendingApprovalsOptions } from "@tera/core";
+import { type ListEventsOptions, type PaginatedResult, type ActionEvent, type ActionEventWithChain, type ContainedActor, type PendingApprovalWithEvent, type ListPendingApprovalsOptions } from "@cortera/core";
 
 const ctx = {
   actor: { actorType: "human" as const, actorId: "demo-user" },
@@ -81,14 +81,14 @@ async function main() {
 
   try {
     const createResult = await createNoteAction.execute(
-      { title: "Hello Tera", content: "First note" },
+      { title: "Hello Cortera Framework", content: "First note" },
       ctx,
       dbClient as any
     ) as { result: any; eventId: string };
     console.log("createNote executed:", createResult.result);
 
     const notifyResult = await notifyWatchersAction.execute(
-      { noteId: (createResult.result as { id: string }).id, title: "Hello Tera" },
+      { noteId: (createResult.result as { id: string }).id, title: "Hello Cortera Framework" },
       { ...ctx, parentEventId: createResult.eventId },
       dbClient as any
     ) as { result: any; eventId: string };
