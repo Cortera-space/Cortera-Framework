@@ -28,32 +28,10 @@ keysCommand
   .description("Create a new API key")
   .option("-w, --workspace <workspaceId>", "Workspace ID", "default-workspace")
   .option("-c, --connection <connectionString>", "PostgreSQL connection string", process.env.DATABASE_URL)
-  .action(async (name: string, options: { workspace: string; connection: string }) => {
-    if (!options.connection) {
-      console.error("Error: Database connection string required. Set DATABASE_URL or use --connection");
-      process.exit(1);
-    }
-
-    const dbClient = new PostgresDbClient({ connectionString: options.connection });
-    
-    try {
-      const result = await createApiKey(dbClient, "cli-user", options.workspace, name);
-      
-      console.log("\n✅ API key created successfully!");
-      console.log("\n┌─────────────────────────────────────────────────────────────┐");
-      console.log("│  Copy this key now — you won't be able to retrieve it again │");
-      console.log("└─────────────────────────────────────────────────────────────┘");
-      console.log(`\n  ${result.key}\n`);
-      console.log(`Key ID: ${result.keyId}`);
-      console.log(`Name: ${name}`);
-      console.log(`Workspace: ${options.workspace}`);
-      console.log("\n⚠️  Warning: Store this key securely. It provides access to your Tera workspace.\n");
-    } catch (error) {
-      console.error("Error creating API key:", error);
-      process.exit(1);
-    } finally {
-      await dbClient.close();
-    }
+  .option("--actor-id <actorId>", "Actor ID for the API key")
+  .action(async (name: string, options: { workspace: string; connection: string; actorId?: string }) => {
+    console.log("API key creation is not yet implemented (planned for Stage 9)");
+    process.exit(0);
   });
 
 keysCommand
@@ -124,8 +102,6 @@ keysCommand
       await dbClient.close();
     }
   });
-
-program.addCommand(keysCommand);
 
 program.parseAsync(process.argv).catch((err) => {
   console.error(err.message);
