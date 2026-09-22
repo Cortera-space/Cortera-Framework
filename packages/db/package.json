@@ -1,6 +1,6 @@
 {
-  "name": "@tera/db",
-  "version": "0.1.0",
+  "name": "@cortera/db",
+  "version": "1.0.0-28",
   "description": "PostgreSQL database client for Tera - migrations, event storage, actor state, approvals, delayed actions, provenance, and behavioral drift baselines",
   "repository": {
     "type": "git",
@@ -29,7 +29,7 @@
     "migrate:down": "node-pg-migrate down"
   },
   "dependencies": {
-    "@tera/core": "workspace:*",
+    "@cortera/core": "^1.0.0-26",
     "pg": "^8.11.0"
   },
   "devDependencies": {

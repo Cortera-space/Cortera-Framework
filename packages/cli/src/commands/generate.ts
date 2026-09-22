@@ -4,7 +4,7 @@ import { writeFile, mkdir } from "fs/promises";
 import { resolve } from "path";
 
 const ACTION_TEMPLATE = `import { z } from "zod";
-import { defineAction } from "@tera/core";
+import { defineAction } from "@cortera/core";
 
 export const {{name}}Action = defineAction({
   name: "{{name}}",

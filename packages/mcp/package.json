@@ -1,6 +1,6 @@
 {
-  "name": "@tera/mcp",
-  "version": "0.1.0",
+  "name": "@cortera/mcp",
+  "version": "1.0.0-28",
   "description": "Model Context Protocol (MCP) server for Tera - exposes Actions as callable tools for AI agents",
   "repository": {
     "type": "git",
@@ -28,8 +28,8 @@
   },
   "dependencies": {
     "@modelcontextprotocol/server": "^2.0.0",
-    "@tera/auth": "workspace:*",
-    "@tera/core": "workspace:*",
+    "@cortera/auth": "^1.0.0-26",
+    "@cortera/core": "^1.0.0-26",
     "zod": "^3.22.0",
     "zod-to-json-schema": "^3.21.4"
   },

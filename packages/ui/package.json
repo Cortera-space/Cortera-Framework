@@ -1,6 +1,6 @@
 {
-  "name": "@tera/ui",
-  "version": "0.1.0",
+  "name": "@cortera/ui",
+  "version": "1.0.0-28",
   "description": "React UI components for Tera - auto-generated forms and triggers from Action definitions",
   "repository": {
     "type": "git",
@@ -29,7 +29,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@tera/core": "workspace:*",
+    "@cortera/core": "^1.0.0-26",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "zod": "^3.22.0"

@@ -1,6 +1,6 @@
 {
-  "name": "@tera/auth",
-  "version": "0.1.0",
+  "name": "@cortera/auth",
+  "version": "1.0.0-28",
   "description": "Authentication and API key management for Tera - create, validate, revoke, and list API keys",
   "repository": {
     "type": "git",
@@ -29,8 +29,8 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@tera/core": "workspace:*",
-    "@tera/db": "workspace:*"
+    "@cortera/core": "^1.0.0-26",
+    "@cortera/db": "^1.0.0-26"
   },
   "devDependencies": {
     "tsup": "^8.0.0",

@@ -1,6 +1,6 @@
 {
-  "name": "@tera/guard-service",
-  "version": "0.1.0",
+  "name": "@cortera/guard-service",
+  "version": "1.0.0-28",
   "description": "Standalone guard service for Tera - HTTP API for action execution, approvals, containment review, and observability queries",
   "repository": {
     "type": "git",
@@ -28,8 +28,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@tera/core": "workspace:*",
-    "@tera/db": "workspace:*",
+    "@cortera/core": "^1.0.0-26",
+    "@cortera/db": "^1.0.0-26",
     "fastify": "^4.24.0",
     "zod": "^3.22.0"
   },

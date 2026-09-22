@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { Command } from "commander";
-import { PostgresDbClient } from "@tera/db";
-import { createApiKey, revokeApiKey, listApiKeys } from "@tera/auth";
+import { PostgresDbClient } from "@cortera/db";
+import { createApiKey, revokeApiKey, listApiKeys } from "@cortera/auth";
 import { devCommand } from "./commands/dev.js";
 import { generateCommand } from "./commands/generate.js";
 import { migrateCommand } from "./commands/migrate.js";
