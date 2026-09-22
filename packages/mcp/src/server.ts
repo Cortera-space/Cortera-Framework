@@ -6,15 +6,15 @@ import type {
   Actor,
   DefinedAction,
   ActionExecutionResult,
-} from "@tera/core";
+} from "@cortera/core";
 import {
   ActionValidationError,
   ActionPermissionError,
   ActionContainmentError,
   ActionPendingApprovalError,
-} from "@tera/core";
+} from "@cortera/core";
 import { zodToJsonSchema } from "zod-to-json-schema";
-import { validateApiKey } from "@tera/auth";
+import { validateApiKey } from "@cortera/auth";
 
 export interface McpActionServerOptions {
   registry: ActionRegistry;

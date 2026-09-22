@@ -1,4 +1,4 @@
-# Tera Benchmark: Raw Next.js vs tRPC+Zod vs Tera
+# Cortera Framework Benchmark: Raw Next.js vs tRPC+Zod vs Cortera Framework
 
 **Feature**: `createInvoice` — Creates an invoice with customer ID, amount, due date; requires `invoices.create` permission; writes invoice record + audit log; callable by human (UI form) and AI agent (OpenAPI/MCP).
 
@@ -6,7 +6,7 @@
 
 ## Summary Table
 
-| Metric | Raw Next.js | tRPC + Zod | Tera |
+| Metric | Raw Next.js | tRPC + Zod | Cortera Framework |
 |--------|-------------|------------|------|
 | **Implementation LOC** | 606 | 565 | **124** |
 | **Implementation Files** | 8 | 12 | **6** |
@@ -71,14 +71,14 @@
 
 ---
 
-### 3. Tera (`/benchmark/tera`)
+### 3. Cortera Framework (`/benchmark/cortera`)
 
 **Files (6 implementation files):**
 | File | Lines | Purpose |
 |------|-------|---------|
 | `src/actions/createInvoice.ts` | 22 | Single `defineAction` call |
 | `src/lib/registry.ts` | 47 | Registry + permissions + DB (boilerplate) |
-| `src/app/api/actions/[actionName]/route.ts` | 41 | Generic Tera action handler (one for ALL actions) |
+| `src/app/api/actions/[actionName]/route.ts` | 41 | Generic Cortera Framework action handler (one for ALL actions) |
 | `src/app/invoice/page.tsx` | 14 | Page using `<ActionForm action={createInvoiceAction} />` |
 
 **Total: 124 LOC across 6 files**
@@ -87,30 +87,30 @@
 1. `createInvoice.ts` — add to Zod schema + handler return
 
 **Everything else is automatic:**
-- ✅ Audit log written by Tera core (no manual code)
-- ✅ React form generated from Zod schema via `@tera/ui` `<ActionForm>`
-- ✅ MCP tool exposed automatically via `@tera/mcp` (Zod → JSON Schema)
+- ✅ Audit log written by Cortera Framework core (no manual code)
+- ✅ React form generated from Zod schema via `@cortera/ui` `<ActionForm>`
+- ✅ MCP tool exposed automatically via `@cortera/mcp` (Zod → JSON Schema)
 - ✅ OpenAPI schema generated from Zod at runtime
 - ✅ Permission check, containment, blast radius all built in
 
 ---
 
-## What Tera Made HARDER / Awkward
+## What Cortera Framework Made HARDER / Awkward
 
 1. **Learning curve**: Understanding the `defineAction` config options (`blastRadius`, `riskTier`, `approvalTtlMs`, etc.) takes reading docs. Raw Next.js/tRPC are more familiar.
 
-2. **In-memory DB boilerplate**: The benchmark still requires a `DbClient` implementation. In a real app you'd use `@tera/db` Postgres client, but for a standalone benchmark we implemented `InMemoryDbClient` (~47 lines). This is one-time setup, not per-action.
+2. **In-memory DB boilerplate**: The benchmark still requires a `DbClient` implementation. In a real app you'd use `@cortera/db` Postgres client, but for a standalone benchmark we implemented `InMemoryDbClient` (~47 lines). This is one-time setup, not per-action.
 
-3. **UI customization**: `@tera/ui`'s `<ActionForm>` renders a full form from Zod. Customizing field layout, custom components, or complex validation UX requires either:
+3. **UI customization**: `@cortera/ui`'s `<ActionForm>` renders a full form from Zod. Customizing field layout, custom components, or complex validation UX requires either:
    - Passing render props (limited)
    - Writing your own form (defeats the purpose)
    - Forking the UI package
 
 4. **Error message customization**: Validation errors come from Zod directly. Customizing "Amount must be positive" requires Zod `.refine()` or custom error maps — same as raw Zod, but less obvious where to put it.
 
-5. **Authentication integration**: The `resolveActor` function in the route handler is where you plug in your auth. For a real app you'd use `@tera/auth` with API keys, but it's another package to learn.
+5. **Authentication integration**: The `resolveActor` function in the route handler is where you plug in your auth. For a real app you'd use `@cortera/auth` with API keys, but it's another package to learn.
 
-6. **No "escape hatch" for weird edge cases**: If you need something Tera doesn't model (e.g., multi-step wizard, file uploads, streaming responses), you're fighting the framework. Raw Next.js/tRPC let you write exactly what you want.
+6. **No "escape hatch" for weird edge cases**: If you need something Cortera Framework doesn't model (e.g., multi-step wizard, file uploads, streaming responses), you're fighting the framework. Raw Next.js/tRPC let you write exactly what you want.
 
 ---
 
@@ -118,7 +118,7 @@
 
 ### The "Define Once" Claim — Verified
 
-| Concern | Raw Next.js | tRPC+Zod | Tera |
+| Concern | Raw Next.js | tRPC+Zod | Cortera Framework |
 |---------|-------------|----------|------|
 | Validation schema | Zod (manual) | Zod (manual) | **Zod (single source)** |
 | Audit log | Manual (120 lines) | Manual (68 lines) | **Automatic (0 lines)** |
@@ -133,7 +133,7 @@
 |-----------|------|
 | **Raw Next.js** | Simple API, no agent story, team knows Next.js, zero dependencies |
 | **tRPC + Zod** | Full-stack React app, want end-to-end types, already using tRPC, no agent/MCP needed |
-| **Tera** | Building agent-callable actions, need audit trail by default, want to eliminate drift between validation/form/API/tool schema, willing to adopt opinionated framework |
+| **Cortera Framework** | Building agent-callable actions, need audit trail by default, want to eliminate drift between validation/form/API/tool schema, willing to adopt opinionated framework |
 
 ---
 
@@ -146,12 +146,12 @@ cd benchmark/raw-nextjs && npm install && npm run dev
 # tRPC + Zod
 cd benchmark/trpc-zod && npm install && npm run dev
 
-# Tera (requires workspace packages)
-cd benchmark/tera && npm install && npm run dev
+# Cortera Framework (requires workspace packages)
+cd benchmark/cortera && npm install && npm run dev
 ```
 
 All three run on `http://localhost:3000` with `/invoice` page.
 
 ---
 
-*Generated as evidence for Tera launch blog post. All code in `/benchmark` directory.*
+*Generated as evidence for Cortera Framework launch blog post. All code in `/benchmark` directory.*

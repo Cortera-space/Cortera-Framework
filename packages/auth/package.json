@@ -1,10 +1,10 @@
 {
-  "name": "@tera/auth",
+  "name": "@cortera/auth",
   "version": "0.1.0",
-  "description": "Authentication and API key management for Tera - create, validate, revoke, and list API keys",
+  "description": "Cortera Framework authentication and API key management - create, validate, revoke, and list API keys",
   "repository": {
     "type": "git",
-    "url": "https://github.com/tera-framework/tera.git",
+    "url": "https://github.com/cortera-framework/tera.git",
     "directory": "packages/auth"
   },
   "license": "MIT",

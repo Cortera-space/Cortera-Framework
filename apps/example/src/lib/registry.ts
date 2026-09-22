@@ -23,8 +23,8 @@ import {
   type ActorBehaviorBaseline,
   type InsertActorBehaviorBaseline,
   type ActorCallHistoryEntry,
-} from "@tera/core";
-import { resolveActorFromRequest } from "@tera/adapter-next";
+} from "@cortera/core";
+import { resolveActorFromRequest } from "@cortera/adapter-next";
 import { deleteWorkspaceAction } from "@/actions/deleteWorkspace";
 import { archiveNoteAction } from "@/actions/archiveNote";
 
@@ -759,6 +759,6 @@ export const workspaceContactResolver: WorkspaceContactResolver = {
   },
 };
 
-(globalThis as any).__TERA_CONTACT_RESOLVER__ = workspaceContactResolver;
+(globalThis as any).__CORTERA_CONTACT_RESOLVER__ = workspaceContactResolver;
 
 export { resolveActorFromRequest };

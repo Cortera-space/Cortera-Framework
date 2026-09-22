@@ -1,10 +1,10 @@
 {
-  "name": "@tera/core",
+  "name": "@cortera/core",
   "version": "0.1.0",
-  "description": "Core Tera framework - Action primitive, event log, permission engine, blast radius, risk modes, provenance, and behavioral drift detection",
+  "description": "Cortera Framework core - Action primitive, event log, permission engine, blast radius, risk modes, provenance, and behavioral drift detection",
   "repository": {
     "type": "git",
-    "url": "https://github.com/tera-framework/tera.git",
+    "url": "https://github.com/cortera-framework/tera.git",
     "directory": "packages/core"
   },
   "license": "MIT",

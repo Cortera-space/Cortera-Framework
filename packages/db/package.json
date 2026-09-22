@@ -1,10 +1,10 @@
 {
-  "name": "@tera/db",
+  "name": "@cortera/db",
   "version": "0.1.0",
-  "description": "PostgreSQL database client for Tera - migrations, event storage, actor state, approvals, delayed actions, provenance, and behavioral drift baselines",
+  "description": "Cortera Framework PostgreSQL database client - migrations, event storage, actor state, approvals, delayed actions, provenance, and behavioral drift baselines",
   "repository": {
     "type": "git",
-    "url": "https://github.com/tera-framework/tera.git",
+    "url": "https://github.com/cortera-framework/tera.git",
     "directory": "packages/db"
   },
   "license": "MIT",
