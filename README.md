@@ -1,7 +1,8 @@
 # Cortera Framework
 
-**Define once. Ship to humans and agents alike.**
 
+**Define once. Ship to humans and agents alike.**
+![Tera Architecture](file_0000000095d0820883be2a81ce09cdd5.png)
 ---
 
 ## Why Cortera Framework
