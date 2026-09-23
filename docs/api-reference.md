@@ -589,9 +589,9 @@ interface ApiKey {
 | `cortera generate` | Generate Action scaffolding |
 | `cortera migrate` | Run database migrations |
 | `cortera check` | Type-check all Actions |
-| `corcortera keys create <name>` | Create API key |
-| `corcortera keys list` | List API keys |
-| `corcortera keys revoke <keyId>` | Revoke API key |
+| `cortera keys create <name>` | Create API key |
+| `cortera keys list` | List API keys |
+| `cortera keys revoke <keyId>` | Revoke API key |
 
 ### Options
 
