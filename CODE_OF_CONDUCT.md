@@ -39,7 +39,7 @@ in public spaces.
 ## Enforcement
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
-reported to the maintainers at **conduct@cortera.dev**. All complaints will
+reported to the maintainers at **conduct@cortera.space**. All complaints will
 be reviewed and investigated promptly and fairly.
 
 ## Enforcement Guidelines
