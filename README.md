@@ -2,6 +2,7 @@
 
 **Define once. Ship to humans and agents alike.**
 
+![Cortera Architecture](assets/cortera-architecture.png)
 ---
 
 ## Why Cortera Framework
