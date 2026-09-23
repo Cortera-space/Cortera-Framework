@@ -12,7 +12,7 @@ bypasses a permission check, not just an app bug. Please report privately.
 Instead:
 1. Go to the repo's **Security** tab → **Report a vulnerability** (GitHub Private
    Vulnerability Reporting), or
-2. Email **security@cortera.dev** (or the maintainer contact listed in the repo)
+2. Email **security@cortera.space** (or the maintainer contact listed in the repo)
    with:
    - Affected package(s) and version (e.g. `@cortera/guard-service@1.0.0-28`)
    - Steps to reproduce / proof-of-concept
