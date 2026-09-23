@@ -28,8 +28,8 @@ This is a monorepo with the following packages:
 ## Getting set up
 
 ```bash
-git clone https://github.com/Cortera-space/Tera-v1.0.0.26.git
-cd Tera-v1.0.0.26
+git clone https://github.com/Cortera-space/Cortera-Framework.git
+cd Cortera-Framework 
 npm install
 npm run build
 npm test
