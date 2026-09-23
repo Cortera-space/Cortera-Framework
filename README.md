@@ -1,8 +1,8 @@
 # Cortera Framework
-
+![Project Image](vpn4fu19zuffa.jpg)
 
 **Define once. Ship to humans and agents alike.**
-![Tera Architecture](file_0000000095d0820883be2a81ce09cdd5.png)
+
 ---
 
 ## Why Cortera Framework
@@ -12,6 +12,7 @@ Modern apps increasingly need to be usable by both humans and AI agents, and bot
 - **Observability-first** — every request, mutation, and error automatically produces structured traces and events. No APM vendor required.
 - **Agent-native** — every route/action is automatically exposed as both a UI trigger and a callable tool schema, with built-in permissions and audit logging.
 - **Safe by default** — Blast Radius + Auto-Containment is the industry's first runtime defense against rogue agent chains.
+![Tera Architecture](file_0000000095d0820883be2a81ce09cdd5.png)
 
 ---
 
