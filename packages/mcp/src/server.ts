@@ -28,14 +28,14 @@ export interface McpActionServer {
   factory: (ctx: McpRequestContext) => Promise<McpServer>;
 }
 
-function toStandardSchema(zodSchema: any) {
-  const jsonSchema = zodToJsonSchema(zodSchema, {
+function createStandardSchema(action: DefinedAction<any>) {
+  const jsonSchema = zodToJsonSchema(action.input, {
     name: "action",
     target: "jsonSchema7",
     $refStrategy: "none",
   }) as Record<string, unknown>;
 
-  let inputSchema: Record<string, unknown> = { ...jsonSchema, $schema: "http://json-schema.org/draft-07/schema#" };
+  let inputSchema: Record<string, unknown> = { ...jsonSchema };
 
   if (inputSchema.$ref && typeof inputSchema.$ref === "string") {
     const refPath = inputSchema.$ref;
@@ -43,12 +43,30 @@ function toStandardSchema(zodSchema: any) {
       const defName = refPath.replace("#/definitions/", "");
       const definition = (jsonSchema.definitions as Record<string, unknown> | undefined)?.[defName];
       if (definition) {
-        inputSchema = { ...definition, $schema: "http://json-schema.org/draft-07/schema#" };
+        inputSchema = { ...definition };
       }
     }
   }
 
-  return fromJsonSchema(inputSchema);
+  // Manually create Standard Schema with proper structure matching fromJsonSchema output
+  return {
+    "~standard": {
+      version: 1,
+      vendor: "mcp",
+      jsonSchema: {
+        input: () => inputSchema,
+        output: () => inputSchema,
+      },
+      validate: (data: unknown) => {
+        const result = action.input.safeParse(data);
+        if (result.success) {
+          return { value: result.data };
+        } else {
+          return { issues: result.error.issues };
+        }
+      },
+    },
+  };
 }
 
 export function createMcpActionServer(options: McpActionServerOptions): McpActionServer {
@@ -61,13 +79,16 @@ export function createMcpActionServer(options: McpActionServerOptions): McpActio
     });
 
     for (const action of registry.list()) {
+      const standardSchema = createStandardSchema(action);
+
       server.registerTool(
         action.name,
         {
           description: action.description,
-          inputSchema: toStandardSchema(action.input),
+          inputSchema: standardSchema,
         },
-        async (rawInput: unknown) => {
+        async (rawInput: unknown, extra?: any) => {
+          console.log("[DEBUG] Tool handler called for:", action.name, "input:", rawInput, "extra:", extra);
           const apiKey =
             ctx.requestInfo?.headers.get("x-cortera-api-key") ??
             ctx.authInfo?.extra?.apiKey;

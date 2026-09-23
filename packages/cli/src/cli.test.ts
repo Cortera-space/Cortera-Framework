@@ -36,6 +36,16 @@ async function setupTestProject() {
       },
     }, null, 2)
   );
+
+  // Create pnpm-workspace.yaml to include monorepo packages
+  await writeFile(
+    resolve(TEST_PROJECT_DIR, "pnpm-workspace.yaml"),
+    `packages:\n  - '${MONOREPO_ROOT}/packages/*'\n`
+  );
+
+  // Install dependencies in test project
+  console.log(`[DEBUG] Installing test project dependencies`);
+  await execa("pnpm", ["install"], { cwd: TEST_PROJECT_DIR, reject: false, stderr: "pipe", stdout: "pipe" });
   console.log(`[DEBUG] Test project setup complete`);
 }
 
