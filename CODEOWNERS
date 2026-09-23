@@ -1,0 +1,12 @@
+# Default owner for everything not matched below
+*                                   @your-github-handle
+
+# Security-sensitive packages — require a security-context reviewer
+packages/guard-service/**          @your-github-handle
+packages/core/src/blast-radius/**  @your-github-handle
+packages/auth/**                   @your-github-handle
+
+# Docs / community files
+CODE_OF_CONDUCT.md                 @your-github-handle
+SECURITY.md                        @your-github-handle
+CONTRIBUTING.md                    @your-github-handle
