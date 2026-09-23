@@ -18,10 +18,10 @@ export const devCommand = new Command("dev")
       ? resolve(__dirname, "../../../apps/example")
       : process.cwd();
 
-    console.log(chalk.cyan("\n🚀 Starting Tera development environment...\n"));
+    console.log(chalk.cyan("\n🚀 Starting Cortera development environment...\n"));
 
     if (!existsSync(resolve(projectRoot, "package.json"))) {
-      console.error(chalk.red("Error: No package.json found. Are you in a Tera project?"));
+      console.error(chalk.red("Error: No package.json found. Are you in a Cortera Framework project?"));
       process.exit(1);
     }
 

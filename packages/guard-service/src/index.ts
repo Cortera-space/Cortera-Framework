@@ -1,6 +1,6 @@
 import { z } from "zod";
 import Fastify from "fastify";
-import { ActionRegistry, InMemoryDbClient, InMemoryPermissionEngine, checkActorContainment, checkBlastRadius, ActionContext, Actor, DefinedAction, ActionContainmentError } from "@tera/core";
+import { ActionRegistry, InMemoryDbClient, InMemoryPermissionEngine, checkActorContainment, checkBlastRadius, ActionContext, Actor, DefinedAction, ActionContainmentError } from "@cortera/core";
 
 // Input schema for the /evaluate-call endpoint
 const EvaluateCallInputSchema = z.object({

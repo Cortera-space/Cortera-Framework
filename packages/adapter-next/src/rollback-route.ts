@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { DbClient, Actor, DefinedAction, rollbackAction, ActionRollbackError } from "@tera/core";
+import { DbClient, Actor, DefinedAction, rollbackAction, ActionRollbackError } from "@cortera/core";
 
 export interface RollbackRouteOptions {
   dbClient: DbClient;

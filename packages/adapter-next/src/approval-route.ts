@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { DbClient, Actor, resolveApproval } from "@tera/core";
+import { DbClient, Actor, resolveApproval } from "@cortera/core";
 
 export interface ApprovalRouteOptions {
   dbClient: DbClient;

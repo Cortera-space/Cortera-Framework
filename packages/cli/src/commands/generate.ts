@@ -4,7 +4,7 @@ import { writeFile, mkdir } from "fs/promises";
 import { resolve } from "path";
 
 const ACTION_TEMPLATE = `import { z } from "zod";
-import { defineAction } from "@tera/core";
+import { defineAction } from "@cortera/core";
 
 export const {{name}}Action = defineAction({
   name: "{{name}}",
@@ -23,7 +23,7 @@ export const {{name}}Action = defineAction({
 `;
 
 export const generateCommand = new Command("generate")
-  .description("Scaffold new Tera project files")
+  .description("Scaffold new Cortera Framework project files")
   .addCommand(
     new Command("action")
       .description("Generate a new Action file")

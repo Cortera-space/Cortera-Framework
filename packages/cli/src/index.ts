@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { Command } from "commander";
-import { PostgresDbClient } from "@tera/db";
-import { createApiKey, revokeApiKey, listApiKeys } from "@tera/auth";
+import { PostgresDbClient } from "@cortera/db";
+import { createApiKey, revokeApiKey, listApiKeys } from "@cortera/auth";
 import { devCommand } from "./commands/dev.js";
 import { generateCommand } from "./commands/generate.js";
 import { migrateCommand } from "./commands/migrate.js";
@@ -11,8 +11,8 @@ import { version } from "../package.json";
 const program = new Command();
 
 program
-  .name("tera")
-  .description("Tera CLI - Build, run, and inspect Tera projects")
+  .name("cortera")
+  .description("Cortera CLI - Build, run, and inspect Cortera Framework projects")
   .version(version)
   .addCommand(devCommand)
   .addCommand(generateCommand)
@@ -47,7 +47,7 @@ keysCommand
       console.log(`Key ID: ${result.keyId}`);
       console.log(`Name: ${name}`);
       console.log(`Workspace: ${options.workspace}`);
-      console.log("\n⚠️  Warning: Store this key securely. It provides access to your Tera workspace.\n");
+      console.log("\n⚠️  Warning: Store this key securely. It provides access to your Cortera Framework workspace.\n");
     } catch (error) {
       console.error("Error creating API key:", error);
       process.exit(1);

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useCallback } from "react";
-import type { DefinedAction } from "@tera/core";
+import type { DefinedAction } from "@cortera/core";
 
 export interface ActionButtonProps<T = unknown> {
   action: DefinedAction<any>;

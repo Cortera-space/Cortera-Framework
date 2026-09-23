@@ -31,7 +31,7 @@ async function setupTestProject() {
       version: "0.0.0",
       type: "module",
       dependencies: {
-        "@tera/core": "workspace:*",
+        "@cortera/core": "workspace:*",
         "zod": "^3.22.0",
       },
     }, null, 2)
@@ -112,7 +112,7 @@ describe("tera check", () => {
     await writeFile(
       resolve(TEST_PROJECT_DIR, "src/actions/testAction.ts"),
       `import { z } from "zod";
-import { defineAction } from "@tera/core";
+import { defineAction } from "@cortera/core";
 
 export const testAction = defineAction({
   name: "testAction",
@@ -132,7 +132,7 @@ export const testAction = defineAction({
     await writeFile(
       resolve(TEST_PROJECT_DIR, "src/actions/completeAction.ts"),
       `import { z } from "zod";
-import { defineAction } from "@tera/core";
+import { defineAction } from "@cortera/core";
 
 export const completeAction = defineAction({
   name: "completeAction",
@@ -154,7 +154,7 @@ export const completeAction = defineAction({
     await writeFile(
       resolve(TEST_PROJECT_DIR, "src/actions/badAction.ts"),
       `import { z } from "zod";
-import { defineAction } from "@tera/core";
+import { defineAction } from "@cortera/core";
 
 export const badAction = defineAction({
   name: "badAction",
@@ -174,7 +174,7 @@ export const badAction = defineAction({
     await writeFile(
       resolve(TEST_PROJECT_DIR, "src/actions/todoAction.ts"),
       `import { z } from "zod";
-import { defineAction } from "@tera/core";
+import { defineAction } from "@cortera/core";
 
 export const todoAction = defineAction({
   name: "todoAction",
@@ -194,7 +194,7 @@ export const todoAction = defineAction({
     await writeFile(
       resolve(TEST_PROJECT_DIR, "src/actions/defaultTtlAction.ts"),
       `import { z } from "zod";
-import { defineAction } from "@tera/core";
+import { defineAction } from "@cortera/core";
 
 export const defaultTtlAction = defineAction({
   name: "defaultTtlAction",
@@ -213,7 +213,7 @@ export const defaultTtlAction = defineAction({
 });
 
 describe("tera migrate", () => {
-  it("runs migrate command against @tera/db", async () => {
+  it("runs migrate command against @cortera/db", async () => {
     const result = await runTera(["migrate", "--db-url", "postgresql://test:test@localhost:5432/test"], MONOREPO_ROOT, { timeout: 15000 });
     expect(result.exitCode).not.toBe(0);
     // Should either fail because db not found (when run from test project) or fail to connect to database (when run from monorepo root)
