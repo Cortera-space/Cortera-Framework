@@ -34,7 +34,7 @@ export function ActionButton<T = unknown>({
     setMessage(null);
 
     if (actorId && actorType) {
-      document.cookie = `tera-session=${encodeURIComponent(JSON.stringify({ actorId, actorType }))}; path=/`;
+      document.cookie = `cortera-session=${encodeURIComponent(JSON.stringify({ actorId, actorType }))}; path=/`;
     }
 
     try {

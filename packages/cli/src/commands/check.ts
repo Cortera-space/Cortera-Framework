@@ -19,7 +19,7 @@ export const checkCommand = new Command("check")
   .description("Run pre-deploy safety checks on all registered actions")
   .option("--actions-dir <dir>", "Directory containing action files", "src/actions")
   .action(async (options) => {
-    console.log(chalk.cyan("\n🔍 Running Cortera pre-deploy safety checks...\n"));
+    console.log(chalk.cyan("\n🔍 Running Cortera Framework pre-deploy safety checks...\n"));
 
     const actionsDir = resolve(process.cwd(), options.actionsDir);
     // Match both *Action.ts (generated) and *.ts (existing) files in actions directory

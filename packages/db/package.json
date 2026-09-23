@@ -1,10 +1,10 @@
 {
   "name": "@cortera/db",
-  "version": "1.0.0-29",
-  "description": "PostgreSQL database client for Cortera Framework - migrations, event storage, actor state, approvals, delayed actions, provenance, and behavioral drift baselines",
+  "version": "0.1.0",
+  "description": "Cortera Framework PostgreSQL database client - migrations, event storage, actor state, approvals, delayed actions, provenance, and behavioral drift baselines",
   "repository": {
     "type": "git",
-    "url": "https://github.com/tera-framework/tera.git",
+    "url": "https://github.com/cortera-framework/tera.git",
     "directory": "packages/db"
   },
   "license": "MIT",
@@ -29,7 +29,7 @@
     "migrate:down": "node-pg-migrate down"
   },
   "dependencies": {
-    "@cortera/core": "^1.0.0-26",
+    "@cortera/core": "workspace:*",
     "pg": "^8.11.0"
   },
   "devDependencies": {

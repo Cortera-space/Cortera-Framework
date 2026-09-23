@@ -1,7 +1,7 @@
 """
 Part 1: Attack Pattern Replay Test Harness (FIXED v2)
 
-The key Tera invariant to test:
+The key Cortera Framework invariant to test:
 ANY call where:
   - causal root of the call's justification is "untrusted_external"
   AND

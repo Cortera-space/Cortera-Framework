@@ -95,7 +95,7 @@ async function sendConfirmation(
   triggerReason: TriggerReason = "declared_irreversible",
   untrustedSourceInfo?: string
 ): Promise<void> {
-  const confirmUrl = `${process.env.TERA_CONFIRMATION_BASE_URL || "https://app.example.com"}/confirm/${token}`;
+  const confirmUrl = `${process.env.CORTERA_CONFIRMATION_BASE_URL || "https://app.example.com"}/confirm/${token}`;
   
   let message: string;
   if (triggerReason === "untrusted_provenance") {
@@ -126,7 +126,7 @@ async function sendEmail(to: string, subject: string, body: string): Promise<voi
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: process.env.TERA_EMAIL_FROM || "Tera <noreply@tera.local>",
+        from: process.env.CORTERA_EMAIL_FROM || "Cortera Framework <noreply@cortera.local>",
         to,
         subject,
         text: body,

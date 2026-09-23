@@ -11,7 +11,7 @@ export async function resolveActorFromRequest(
   request: NextRequest,
   options: ResolveActorOptions
 ): Promise<Actor | null> {
-  const apiKey = request.headers.get("x-tera-api-key");
+  const apiKey = request.headers.get("x-cortera-api-key");
 
   if (apiKey) {
     const validation = await validateApiKey(options.dbClient, apiKey);
@@ -24,7 +24,7 @@ export async function resolveActorFromRequest(
     return null;
   }
 
-  const sessionCookie = request.cookies.get("tera-session");
+  const sessionCookie = request.cookies.get("cortera-session");
   if (sessionCookie) {
     try {
       const session = JSON.parse(sessionCookie.value) as {

@@ -1,5 +1,5 @@
 """
-Extract AgentDojo attack patterns for replay testing against Tera Guard Service.
+Extract AgentDojo attack patterns for replay testing against Cortera Framework Guard Service.
 
 This script parses the injection task files directly to avoid circular imports.
 """

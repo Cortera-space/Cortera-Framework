@@ -68,7 +68,7 @@ export function ActionForm<T = unknown>({
 
       try {
         if (actorId && actorType) {
-          document.cookie = `tera-session=${encodeURIComponent(JSON.stringify({ actorId, actorType }))}; path=/`;
+          document.cookie = `cortera-session=${encodeURIComponent(JSON.stringify({ actorId, actorType }))}; path=/`;
         }
 
         const response = await fetch(`${basePath}/${action.name}`, {

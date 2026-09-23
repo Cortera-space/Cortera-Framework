@@ -1,10 +1,10 @@
 {
   "name": "@cortera/guard-service",
-  "version": "1.0.0-29",
-  "description": "Standalone guard service for Cortera Framework - HTTP API for action execution, approvals, containment review, and observability queries",
+  "version": "0.1.0",
+  "description": "Cortera Framework standalone guard service - HTTP API for action execution, approvals, containment review, and observability queries",
   "repository": {
     "type": "git",
-    "url": "https://github.com/tera-framework/tera.git",
+    "url": "https://github.com/cortera-framework/tera.git",
     "directory": "packages/guard-service"
   },
   "license": "MIT",
@@ -28,8 +28,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@cortera/core": "^1.0.0-26",
-    "@cortera/db": "^1.0.0-26",
+    "@cortera/core": "workspace:*",
+    "@cortera/db": "workspace:*",
     "fastify": "^4.24.0",
     "zod": "^3.22.0"
   },

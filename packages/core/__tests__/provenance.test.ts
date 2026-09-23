@@ -76,7 +76,7 @@ describe("Provenance - InMemoryDbClient integration", () => {
       actor: { actorType: "agent", actorId: "test-agent" },
       workspaceId: "test-workspace",
     };
-    (globalThis as any).__TERA_CONTACT_RESOLVER__ = mockContactResolver;
+    (globalThis as any).__CORTERA_CONTACT_RESOLVER__ = mockContactResolver;
   });
 
   const createTestAction = (name: string, sanitizes = false): DefinedAction<any, any> =>

@@ -1,8 +1,10 @@
 # Tera Architecture
 
+> **Note:** This project was originally named "Tera" during development; it is now branded **Cortera Framework**. All technical identifiers (package names `@cortera/*`, API key prefix `cortera_`, HTTP headers `x-cortera-*`, cookie `cortera-session`, env vars `CORTERA_*`) reflect the new name. The word "Tera" appears in this document only for historical context.
+
 ## Locked Decisions
 
-This document records the architecture decisions for the Tera framework.
+This document records the architecture decisions for the Cortera Framework (formerly Tera).
 These decisions are **locked** — future stages must reference this file and
 must not change these semantics without a full architectural review.
 

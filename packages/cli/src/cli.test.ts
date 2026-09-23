@@ -43,7 +43,7 @@ function readActionFile(filePath: string): Promise<string> {
   return readFile(filePath, "utf-8");
 }
 
-describe("tera generate action", () => {
+describe("cortera generate action", () => {
   beforeEach(async () => {
     await setupTestProject();
   });
@@ -99,7 +99,7 @@ describe("tera generate action", () => {
   });
 });
 
-describe("tera check", () => {
+describe("cortera check", () => {
   beforeEach(async () => {
     await setupTestProject();
   });
@@ -212,8 +212,8 @@ export const defaultTtlAction = defineAction({
   });
 });
 
-describe("tera migrate", () => {
-  it("runs migrate command against @cortera/db", async () => {
+describe("cortera migrate", () => {
+  it("runs migrate command against @tera/db", async () => {
     const result = await runTera(["migrate", "--db-url", "postgresql://test:test@localhost:5432/test"], MONOREPO_ROOT, { timeout: 15000 });
     expect(result.exitCode).not.toBe(0);
     // Should either fail because db not found (when run from test project) or fail to connect to database (when run from monorepo root)
@@ -221,7 +221,7 @@ describe("tera migrate", () => {
   });
 });
 
-describe("tera keys create", () => {
+describe("cortera keys create", () => {
   beforeEach(async () => {
     await setupTestProject();
   });

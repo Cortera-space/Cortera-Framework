@@ -18,7 +18,7 @@ export const devCommand = new Command("dev")
       ? resolve(__dirname, "../../../apps/example")
       : process.cwd();
 
-    console.log(chalk.cyan("\n🚀 Starting Cortera development environment...\n"));
+    console.log(chalk.cyan("\n🚀 Starting Cortera Framework development environment...\n"));
 
     if (!existsSync(resolve(projectRoot, "package.json"))) {
       console.error(chalk.red("Error: No package.json found. Are you in a Cortera Framework project?"));
@@ -34,7 +34,7 @@ export const devCommand = new Command("dev")
     const devServerUrl = `http://localhost:${options.port}`;
     const restBasePath = "/actions";
     const mcpEndpoint = "/mcp";
-    const dataApiBasePath = "/api/tera";
+    const dataApiBasePath = "/api/cortera";
 
     console.log(chalk.green("✓ Development server starting..."));
     console.log(chalk.bold("\n📋 Startup Summary:"));

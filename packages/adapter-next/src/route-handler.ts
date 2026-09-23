@@ -63,7 +63,7 @@ export function createActionHandler(options: CreateActionHandlerOptions) {
     const actionContext = {
       actor,
       workspaceId: defaultWorkspaceId,
-      parentEventId: request.headers.get("x-tera-parent-event-id") || undefined,
+      parentEventId: request.headers.get("x-cortera-parent-event-id") || undefined,
     };
 
     const url = new URL(request.url);

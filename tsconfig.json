@@ -16,14 +16,14 @@
     "rootDir": ".",
     "baseUrl": ".",
     "paths": {
-      "@tera/core": ["./packages/core/src/index.ts"],
-      "@tera/adapter-next": ["./packages/adapter-next/src/index.ts"],
-      "@tera/mcp": ["./packages/mcp/src/index.ts"],
-      "@tera/db": ["./packages/db/src/index.ts"],
-      "@tera/ui": ["./packages/ui/src/index.ts"],
-      "@tera/auth": ["./packages/auth/src/index.ts"],
-      "@tera/cli": ["./packages/cli/src/index.ts"],
-      "@tera/guard-service": ["./packages/guard-service/src/index.ts"]
+      "@cortera/core": ["./packages/core/src/index.ts"],
+      "@cortera/adapter-next": ["./packages/adapter-next/src/index.ts"],
+      "@cortera/mcp": ["./packages/mcp/src/index.ts"],
+      "@cortera/db": ["./packages/db/src/index.ts"],
+      "@cortera/ui": ["./packages/ui/src/index.ts"],
+      "@cortera/auth": ["./packages/auth/src/index.ts"],
+      "@cortera/cli": ["./packages/cli/src/index.ts"],
+      "@cortera/guard-service": ["./packages/guard-service/src/index.ts"]
     }
   },
   "include": ["packages/**/*.ts", "apps/**/*.ts", "apps/**/*.tsx"],

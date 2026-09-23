@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import {
   InMemoryDbClient,
-} from "@tera/core";
+} from "@cortera/core";
 
 describe("InMemoryDbClient - Observability Queries", () => {
   let db: InMemoryDbClient;

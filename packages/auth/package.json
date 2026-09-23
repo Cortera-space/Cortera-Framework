@@ -1,10 +1,10 @@
 {
   "name": "@cortera/auth",
-  "version": "1.0.0-29",
-  "description": "Authentication and API key management for Cortera Framework - create, validate, revoke, and list API keys",
+  "version": "0.1.0",
+  "description": "Cortera Framework authentication and API key management - create, validate, revoke, and list API keys",
   "repository": {
     "type": "git",
-    "url": "https://github.com/tera-framework/tera.git",
+    "url": "https://github.com/cortera-framework/tera.git",
     "directory": "packages/auth"
   },
   "license": "MIT",
@@ -29,8 +29,8 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@cortera/core": "^1.0.0-26",
-    "@cortera/db": "^1.0.0-26"
+    "@cortera/core": "workspace:*",
+    "@cortera/db": "workspace:*"
   },
   "devDependencies": {
     "tsup": "^8.0.0",

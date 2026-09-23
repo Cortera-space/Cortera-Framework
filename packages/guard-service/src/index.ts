@@ -228,7 +228,7 @@ async function evaluateCall(input: EvaluateCallInput): Promise<EvaluateCallOutpu
   const isHighRisk = toolBlastRadius.some(p => getPermissionCategory(p) >= 3);
   
   if (hasUntrustedContext && isHighRisk) {
-    // This would be "guarded" in real Tera (requires human approval)
+    // This would be "guarded" in real Cortera Framework (requires human approval)
     // For benchmark without human-in-loop, we treat as blocked but log separately
     return {
       verdict: "guarded",
@@ -356,7 +356,7 @@ fastify.listen({ port: PORT, host: "0.0.0.0" }, (err) => {
     fastify.log.error(err);
     process.exit(1);
   }
-  console.log(`Tera Guard Service listening on port ${PORT}`);
+  console.log(`Cortera Framework Guard Service listening on port ${PORT}`);
 });
 
 export { evaluateCall, inferBlastRadius, detectBehavioralDrift, actorCallHistory };

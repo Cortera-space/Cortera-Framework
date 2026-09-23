@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { defineAction } from "@tera/core";
+import { defineAction } from "@cortera/core";
 
 export const testAction = defineAction({
   name: "testAction",

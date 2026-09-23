@@ -1,10 +1,10 @@
 # API Reference
 
-Complete function signatures and types for all Tera packages.
+Complete function signatures and types for all Cortera Framework packages.
 
 ---
 
-## `@tera/core`
+## `@cortera/core`
 
 ### `defineAction`
 
@@ -239,7 +239,7 @@ class InMemoryDbClient implements DbClient {
 
 ---
 
-## `@tera/db`
+## `@cortera/db`
 
 ### `PostgresDbClient`
 
@@ -262,7 +262,7 @@ Full PostgreSQL implementation of `DbClient` interface.
 
 ---
 
-## `@tera/adapter-next`
+## `@cortera/adapter-next`
 
 ### `createActionHandler`
 
@@ -323,8 +323,8 @@ interface ResolveActorOptions {
 ```
 
 Resolution order:
-1. `x-tera-api-key` header → API key lookup (requires `dbClient`)
-2. `tera-session` cookie → parse JSON `{ actorId, actorType }`
+1. `x-cortera-api-key` header → API key lookup (requires `dbClient`)
+2. `cortera-session` cookie → parse JSON `{ actorId, actorType }`
 3. Returns `null` (→ 401)
 
 ---
@@ -355,7 +355,7 @@ interface ObservabilityRouteOptions {
 
 ---
 
-## `@tera/ui`
+## `@cortera/ui`
 
 ### `ActionForm`
 
@@ -437,7 +437,7 @@ interface FieldDescriptor {
 
 ---
 
-## `@tera/mcp`
+## `@cortera/mcp`
 
 ### `generateMcpToolSchema`
 
@@ -496,13 +496,13 @@ interface McpActionServer {
 ```
 
 Creates an MCP server where every registered Action becomes a callable tool. Handles:
-- Actor resolution from `x-tera-api-key` header or auth info
+- Actor resolution from `x-cortera-api-key` header or auth info
 - Full execution pipeline (containment, blast radius, permissions, validation)
 - Error mapping to MCP error format
 
 ---
 
-## `@tera/auth`
+## `@cortera/auth`
 
 ### `createApiKey`
 
@@ -579,26 +579,26 @@ interface ApiKey {
 
 ---
 
-## `@tera/cli`
+## `@cortera/cli`
 
 ### Commands
 
 | Command | Description |
 |---------|-------------|
-| `tera dev` | Development server with hot reload |
-| `tera generate` | Generate Action scaffolding |
-| `tera migrate` | Run database migrations |
-| `tera check` | Type-check all Actions |
-| `tera keys create <name>` | Create API key |
-| `tera keys list` | List API keys |
-| `tera keys revoke <keyId>` | Revoke API key |
+| `cortera dev` | Development server with hot reload |
+| `cortera generate` | Generate Action scaffolding |
+| `cortera migrate` | Run database migrations |
+| `cortera check` | Type-check all Actions |
+| `cortera keys create <name>` | Create API key |
+| `cortera keys list` | List API keys |
+| `cortera keys revoke <keyId>` | Revoke API key |
 
 ### Options
 
 ```bash
-tera keys create <name> -w, --workspace <id> -c, --connection <url>
-tera keys list -w, --workspace <id> -c, --connection <url>
-tera keys revoke <keyId> -c, --connection <url>
+cortera keys create <name> -w, --workspace <id> -c, --connection <url>
+cortera keys list -w, --workspace <id> -c, --connection <url>
+cortera keys revoke <keyId> -c, --connection <url>
 ```
 
 Defaults:

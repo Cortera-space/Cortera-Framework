@@ -27,7 +27,7 @@ function hashKey(key: string): string {
 }
 
 function generateApiKey(): string {
-  const prefix = "tera_";
+  const prefix = "cortera_";
   const randomPart = randomBytes(32).toString("base64url");
   return `${prefix}${randomPart}`;
 }

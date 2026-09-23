@@ -16,8 +16,8 @@
     "noEmit": false,
     "baseUrl": ".",
     "paths": {
-      "@tera/core": ["../core/src"],
-      "@tera/db": ["../db/src"]
+      "@cortera/core": ["../core/src"],
+      "@cortera/db": ["../db/src"]
     }
   },
   "include": ["src/**/*"],

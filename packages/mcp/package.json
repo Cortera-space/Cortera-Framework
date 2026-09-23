@@ -1,10 +1,10 @@
 {
   "name": "@cortera/mcp",
-  "version": "1.0.0-29",
-  "description": "Model Context Protocol (MCP) server for Cortera Framework - exposes Actions as callable tools for AI agents",
+  "version": "0.1.0",
+  "description": "Cortera Framework Model Context Protocol (MCP) server - exposes Actions as callable tools for AI agents",
   "repository": {
     "type": "git",
-    "url": "https://github.com/tera-framework/tera.git",
+    "url": "https://github.com/cortera-framework/tera.git",
     "directory": "packages/mcp"
   },
   "license": "MIT",
@@ -28,8 +28,8 @@
   },
   "dependencies": {
     "@modelcontextprotocol/server": "^2.0.0",
-    "@cortera/auth": "^1.0.0-26",
-    "@cortera/core": "^1.0.0-26",
+    "@cortera/auth": "workspace:*",
+    "@cortera/core": "workspace:*",
     "zod": "^3.22.0",
     "zod-to-json-schema": "^3.21.4"
   },

@@ -12,7 +12,7 @@ const program = new Command();
 
 program
   .name("cortera")
-  .description("Cortera CLI - Build, run, and inspect Cortera Framework projects")
+  .description("Cortera Framework CLI - Build, run, and inspect Cortera Framework projects")
   .version(version)
   .addCommand(devCommand)
   .addCommand(generateCommand)
@@ -47,7 +47,7 @@ keysCommand
       console.log(`Key ID: ${result.keyId}`);
       console.log(`Name: ${name}`);
       console.log(`Workspace: ${options.workspace}`);
-      console.log("\n⚠️  Warning: Store this key securely. It provides access to your Cortera Framework workspace.\n");
+      console.log("\n⚠️  Warning: Store this key securely. It provides access to your Tera workspace.\n");
     } catch (error) {
       console.error("Error creating API key:", error);
       process.exit(1);

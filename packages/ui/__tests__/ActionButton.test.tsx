@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { z } from "zod";
-import { defineAction } from "@tera/core";
+import { defineAction } from "@cortera/core";
 import { ActionButton } from "../src/ActionButton";
 
 function createAction(name: string, schema: z.ZodType<any>) {

@@ -8,8 +8,8 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      "@tera/core": path.resolve(__dirname, "../core/src/index.ts"),
-      "@tera/ui": path.resolve(__dirname, "src/index.ts"),
+      "@cortera/core": path.resolve(__dirname, "../core/src/index.ts"),
+      "@cortera/ui": path.resolve(__dirname, "src/index.ts"),
     },
   },
 });
