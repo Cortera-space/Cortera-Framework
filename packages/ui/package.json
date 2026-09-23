@@ -1,7 +1,7 @@
 {
   "name": "@cortera/ui",
-  "version": "1.0.0-28",
-  "description": "React UI components for Tera - auto-generated forms and triggers from Action definitions",
+  "version": "1.0.0-29",
+  "description": "React UI components for Cortera Framework - auto-generated forms and triggers from Action definitions",
   "repository": {
     "type": "git",
     "url": "https://github.com/tera-framework/tera.git",

@@ -1,7 +1,7 @@
 {
   "name": "@cortera/cli",
-  "version": "1.0.0-28",
-  "description": "Tera command-line interface - generate actions, run migrations, check pre-deploy safety, manage API keys",
+  "version": "1.0.0-29",
+  "description": "Cortera Framework command-line interface - generate actions, run migrations, check pre-deploy safety, manage API keys",
   "repository": {
     "type": "git",
     "url": "https://github.com/tera-framework/tera.git",

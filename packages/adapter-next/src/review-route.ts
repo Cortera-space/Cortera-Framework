@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { DbClient, Actor, reviewContainedActor } from "@tera/core";
+import { DbClient, Actor, reviewContainedActor } from "@cortera/core";
 
 export interface ReviewRouteOptions {
   dbClient: DbClient;

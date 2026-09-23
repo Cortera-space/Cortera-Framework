@@ -23,7 +23,7 @@ export const {{name}}Action = defineAction({
 `;
 
 export const generateCommand = new Command("generate")
-  .description("Scaffold new Tera project files")
+  .description("Scaffold new Cortera Framework project files")
   .addCommand(
     new Command("action")
       .description("Generate a new Action file")

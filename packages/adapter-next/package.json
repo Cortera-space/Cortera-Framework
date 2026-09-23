@@ -1,7 +1,7 @@
 {
   "name": "@cortera/adapter-next",
-  "version": "1.0.0-28",
-  "description": "Next.js adapter for Tera - exposes Actions as REST endpoints with automatic route generation",
+  "version": "1.0.0-29",
+  "description": "Next.js adapter for Cortera Framework - exposes Actions as REST endpoints with automatic route generation",
   "repository": {
     "type": "git",
     "url": "https://github.com/tera-framework/tera.git",

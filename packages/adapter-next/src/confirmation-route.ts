@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { DbClient, Actor, DefinedAction, ActionResult } from "@tera/core";
-import { confirmIrreversibleConfirmation, rejectIrreversibleConfirmation } from "@tera/core";
+import { DbClient, Actor, DefinedAction, ActionResult } from "@cortera/core";
+import { confirmIrreversibleConfirmation, rejectIrreversibleConfirmation } from "@cortera/core";
 
 export interface ConfirmationRouteOptions {
   dbClient: DbClient;

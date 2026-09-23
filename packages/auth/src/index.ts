@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "crypto";
-import type { DbClient } from "@tera/core";
+import type { DbClient } from "@cortera/core";
 
 export interface ApiKey {
   id: string;

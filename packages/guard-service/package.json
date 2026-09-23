@@ -1,7 +1,7 @@
 {
   "name": "@cortera/guard-service",
-  "version": "1.0.0-28",
-  "description": "Standalone guard service for Tera - HTTP API for action execution, approvals, containment review, and observability queries",
+  "version": "1.0.0-29",
+  "description": "Standalone guard service for Cortera Framework - HTTP API for action execution, approvals, containment review, and observability queries",
   "repository": {
     "type": "git",
     "url": "https://github.com/tera-framework/tera.git",

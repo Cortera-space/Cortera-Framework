@@ -1,7 +1,7 @@
-import type { Actor } from "@tera/core";
-import type { DbClient } from "@tera/core";
+import type { Actor } from "@cortera/core";
+import type { DbClient } from "@cortera/core";
 import type { NextRequest } from "next/server";
-import { validateApiKey } from "@tera/auth";
+import { validateApiKey } from "@cortera/auth";
 
 export interface ResolveActorOptions {
   dbClient: DbClient;

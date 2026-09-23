@@ -12,7 +12,7 @@ import {
   DryRunResult,
   DelayedExecutionResult,
   ActionResult,
-} from "@tera/core";
+} from "@cortera/core";
 
 export interface CreateActionHandlerOptions {
   registry: ActionRegistry;
