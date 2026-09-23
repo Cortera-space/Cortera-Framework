@@ -17,7 +17,7 @@ Open a **GitHub Issue** using the Bug Report template. Please check:
 ## Found a security issue?
 
 **Do not use Issues or Discussions.** See `SECURITY.md` for private
-reporting via GitHub's Security tab or security@cortera.dev.
+reporting via GitHub's Security tab or security@cortera.space.
 
 ## Package-specific issues
 
